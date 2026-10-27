@@ -1,0 +1,38 @@
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+credentials.json
+secrets.*
+
+# Logs and sensitive local output
+*.log
+logs/
+*.dump
+*.sql.gz
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.next/
+coverage/
+.cache/
+
+# Local editor/OS files
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Agent scratch/session artifacts (keep shared project rules tracked)
+.agent-tmp/
+.agent-work/
+.opencode/
+.claude/settings.local.json
+.claude/worktrees/
