@@ -1,7 +1,7 @@
 # BaturPay Initialization Report
 
 Date: 2026-10-27 (session date)
-Overall status: IN_PROGRESS. Documentation/Git foundation VERIFIED; tool research partial; multi-agent execution BLOCKED pending authentication and security decisions.
+Overall status: IN_PROGRESS. Documentation/Git foundation and initial GitHub push VERIFIED; tool research partial; multi-agent execution BLOCKED pending authentication and security decisions.
 
 ## Goal
 
@@ -9,12 +9,13 @@ Initialize the designated empty `/root/baturpay` directory, record project conte
 
 ## Work actually performed
 
-- Confirmed `/root/baturpay` existed as an empty, non-symlink directory and was not a Git repository.
-- Initialized a local Git repository without creating a commit.
-- Created 13 non-empty Markdown/documentation files: `README.md`, `AGENTS.md`, `.gitignore`, required project context, roles, orchestration design, roadmap, open decisions, architecture principles, security baseline, development workflow, and supplemental tooling research/skills inventory/report.
-- Inspected local CLI versions/help and authentication status without disclosing credential values.
-- Checked official living documentation for Hermes delegation/CLI, OpenCode CLI/agents/permissions, and Claude Code CLI/hooks/subagents/permissions.
-- Did not install dependencies or skills, create global agent configs, change host permission, run an agent coding task, contact payment providers, or commit changes.
+- Confirmed `/root/baturpay` existed as an empty, non-symlink directory and was not a Git repository; initialized the local repository.
+- Set only this repository's Git identity to `Ibra Decode` / `ibradecode@gmail.com` and verified both values.
+- Created the documentation foundation, security/auth/demo reports, and `.gitignore`; no application code or dependencies were added.
+- Inspected local CLI versions/help and authentication status without disclosing credential values. GitHub CLI was authenticated as `IbraDecode` (credential redacted).
+- Verified `IbraDecode/BaturPay` exists, is public, and had no default branch/ref at inspection; pushed the initial commit to `main` and verified remote HEAD matches the local commit.
+- Checked official living documentation for Hermes delegation/CLI, OpenCode CLI/agents/permissions/providers, and Claude Code CLI/authentication/costs/hooks/subagents/permissions.
+- Did not install dependencies or skills, create global agent configs, change host permission, run an agent coding task, or contact payment providers.
 
 ## Artifacts
 
@@ -35,10 +36,12 @@ Initialize the designated empty `/root/baturpay` directory, record project conte
 
 ## Verification evidence
 
-- Initial path check: directory empty; not a Git worktree.
-- `git init`: successful; `git status --short --branch` reports `No commits yet on master` and only the new documentation as untracked. No automatic commit made.
-- File audit: 13 expected documentation files present and non-empty; no missing files.
-- Markdown local-link scan: no broken repository-relative links found.
+- Initial path check: directory empty; not a Git worktree. `git init` succeeded.
+- The local identity is repository-scoped: `user.name=Ibra Decode`, `user.email=ibradecode@gmail.com`; no global Git identity was changed.
+- File audit before commit found the expected documentation files present/non-empty and no broken repository-relative Markdown links.
+- Secret heuristic scan: no likely key/token/private-key patterns or sensitive filenames found in the project files; no empty files. `git diff --check` and staged diff check passed.
+- `gh auth status` succeeded for `IbraDecode`; token value was redacted. `gh repo view IbraDecode/BaturPay` showed public repository with empty default branch; `git ls-remote --heads --tags` returned no refs.
+- Initial commit `a658eefa9283f0f21e789943619d3862760a335e` (`chore: initialize BaturPay engineering foundation`) was created with the requested author/committer identity and pushed without force to `main`. Post-push `git ls-remote` confirmed remote `refs/heads/main` matched that commit. A factual report correction is being committed separately.
 - OpenCode v2.2.0: installed; `opencode run --help` confirms noninteractive `run` command and flags including `--agent`, `--model`, `--format`, `--file`; `opencode mcp list` reports no MCP servers; `opencode auth list` reports no authenticated integrations.
 - Claude Code v2.1.311: installed; local help confirms `-p/--print`, `--worktree`, permission-related flags; `claude auth status` reports `loggedIn: false` and auth method `none`.
 - Hermes Agent v0.22.5 (2026.9.24): installed. `hermes doctor` found no active security advisories and current config version, but exited 1 with warnings (legacy provider entry, npm advisories, absent optional dependencies/configuration). See `TOOLS_RESEARCH.md` and `SECURITY_BASELINE.md`.
