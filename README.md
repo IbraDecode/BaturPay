@@ -20,6 +20,8 @@ BaturPay bukan wallet atau platform perbankan berdasarkan keputusan proyek saat 
 - Instruksi coding agent: `AGENTS.md`.
 - Desain arsitektur awal: `docs/architecture/ARCHITECTURE_PRINCIPLES.md`.
 - Status dan batas payment state machine: `docs/architecture/PAYMENT_DOMAIN_FOUNDATION.md`.
+- Kontrak idempotency (tanpa storage): `docs/architecture/IDEMPOTENCY_CONTRACT.md`.
+- Desain PostgreSQL (belum diimplementasikan): `docs/architecture/PERSISTENCE_DESIGN.md`.
 - Alur verifikasi: `docs/engineering/DEVELOPMENT_WORKFLOW.md`.
 - Keputusan terbuka: `docs/ai-system/OPEN_DECISIONS.md`.
 

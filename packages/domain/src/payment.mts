@@ -19,22 +19,26 @@ export type PaymentTransitionEvidence =
   | "VERIFIED_WEBHOOK"
   | "VERIFIED_RECONCILIATION";
 export interface Payment {
-  payment_id: string;
-  merchant_id: string;
-  environment: PaymentEnvironment;
-  service_model: PaymentServiceModel;
-  amount_minor: number;
-  currency: string;
-  status: PaymentStatus;
-  version: number;
+  readonly payment_id: string;
+  readonly merchant_id: string;
+  readonly environment: PaymentEnvironment;
+  readonly service_model: PaymentServiceModel;
+  readonly amount_minor: number;
+  readonly currency: string;
+  readonly status: PaymentStatus;
+  readonly version: number;
 }
 
 export interface PaymentTransitionContext {
   evidence?: PaymentTransitionEvidence;
 }
 
+export type PaymentCreationResult =
+  | { ok: true; payment: Payment }
+  | { ok: false; error: PaymentTransitionError };
+
 export interface PaymentTransitionError {
-  code: "INVALID_PAYMENT" | "TERMINAL_STATE" | "MISSING_EVIDENCE" | "UNKNOWN_REQUIRES_EVIDENCE" | "TRANSITION_NOT_ALLOWED";
+  code: "INVALID_PAYMENT" | "INVALID_EVIDENCE" | "TERMINAL_STATE" | "MISSING_EVIDENCE" | "UNKNOWN_REQUIRES_EVIDENCE" | "TRANSITION_NOT_ALLOWED" | "VERSION_EXHAUSTED";
   message: string;
 }
 
@@ -74,8 +78,20 @@ export function validatePayment(payment: unknown): payment is Payment {
     /^[A-Z]{3}$/.test(value.currency) &&
     PAYMENT_STATUSES.includes(value.status as PaymentStatus) &&
     Number.isSafeInteger(value.version) &&
-    (value.version as number) >= 1
+    (value.version as number) >= 1 &&
+    (value.version as number) <= Number.MAX_SAFE_INTEGER
   );
+}
+
+export function createPayment(input: Omit<Payment, "status" | "version">): PaymentCreationResult {
+  const payment: Payment = { ...input, status: "CREATED", version: 1 };
+  if (!validatePayment(payment)) {
+    return {
+      ok: false,
+      error: { code: "INVALID_PAYMENT", message: "Payment identity, positive minor-unit amount, currency, environment, or service model is invalid." },
+    };
+  }
+  return { ok: true, payment };
 }
 
 export function transitionPayment(
@@ -91,6 +107,13 @@ export function transitionPayment(
   }
   if (!PAYMENT_STATUSES.includes(next)) {
     return { ok: false, error: { code: "TRANSITION_NOT_ALLOWED", message: "Unknown payment status." } };
+  }
+  if (typeof context !== "object" || context === null || Array.isArray(context)) {
+    return { ok: false, error: { code: "INVALID_EVIDENCE", message: "Transition context must be an object." } };
+  }
+  const validEvidence: readonly PaymentTransitionEvidence[] = ["REQUEST_ACCEPTED", "TRUSTED_PROVIDER_STATUS", "VERIFIED_WEBHOOK", "VERIFIED_RECONCILIATION"];
+  if (context.evidence !== undefined && !validEvidence.includes(context.evidence)) {
+    return { ok: false, error: { code: "INVALID_EVIDENCE", message: "Transition evidence label is not recognized." } };
   }
   if (TERMINAL_STATUSES.has(current.status)) {
     return { ok: false, error: { code: "TERMINAL_STATE", message: `Terminal payment state ${current.status} cannot transition.` } };
@@ -108,9 +131,8 @@ export function transitionPayment(
   if (!ALLOWED_TRANSITIONS[current.status].includes(next)) {
     return { ok: false, error: { code: "TRANSITION_NOT_ALLOWED", message: `Transition ${current.status} -> ${next} is not allowed.` } };
   }
-  if (current.status === "UNKNOWN" && next === "UNKNOWN") {
-    return { ok: false, error: { code: "TRANSITION_NOT_ALLOWED", message: "UNKNOWN cannot transition to itself." } };
+  if (current.version === Number.MAX_SAFE_INTEGER) {
+    return { ok: false, error: { code: "VERSION_EXHAUSTED", message: "Payment version cannot be incremented safely." } };
   }
-
   return { ok: true, payment: { ...current, status: next, version: current.version + 1 } };
 }

@@ -6,6 +6,15 @@ Status: PROPOSED / locally implemented pure transition prototype. It is not a pr
 
 `packages/domain/src/payment.mts` defines:
 
+- `createPayment`, which constructs only the initial `CREATED` state at version 1 after runtime validation. Hydration from persistence still needs its own trusted repository boundary.
+- A proposed transition graph, including `REQUIRES_ACTION` and `PROCESSING` → `PENDING` as a possible provider observation/reconciliation case. Its meaning and admissibility are not established universally; validate with selected providers before using it as product policy.
+- A maximum safe version check so incrementing a valid payment cannot overflow into an unsafe integer.
+- Runtime validation of transition context/evidence labels. Labels remain caller-supplied metadata, never cryptographic proof of verification.
+- Provider adapters return normalized observations and candidate statuses only; only domain/application orchestration may apply validated transitions.
+- Idempotency scope/fingerprint/replay/recovery logic and PostgreSQL persistence design are in separate docs; no persistence implementation exists.
+
+The `Payment` value contains:
+
 - Payment identity: payment ID, merchant ID, environment, service model, amount in minor units, currency, status and version.
 - Environments: `SANDBOX`, `PRODUCTION`.
 - Service models: `CONNECTED_PROVIDER`, `BATURPAY` (classification only; no operational flow implemented).
@@ -27,7 +36,7 @@ Important limitation: evidence labels are plain caller-supplied metadata in this
 - `CREATED` → `PENDING`, `REQUIRES_ACTION`, `PROCESSING`, `FAILED`, `EXPIRED`, `CANCELLED`, `UNKNOWN`
 - `PENDING` → `REQUIRES_ACTION`, `PROCESSING`, `PAID`, `FAILED`, `EXPIRED`, `CANCELLED`, `UNKNOWN`
 - `REQUIRES_ACTION` → `PENDING`, `PROCESSING`, `PAID`, `FAILED`, `EXPIRED`, `CANCELLED`, `UNKNOWN`
-- `PROCESSING` → `PENDING`, `PAID`, `FAILED`, `EXPIRED`, `CANCELLED`, `UNKNOWN`
+- `PROCESSING` → `PENDING`, `PAID`, `FAILED`, `EXPIRED`, `CANCELLED`, `UNKNOWN` (a return to `PENDING` is a proposed provider-observation case, not a settled rule)
 - `UNKNOWN` → `PENDING`, `REQUIRES_ACTION`, `PROCESSING`, `PAID`, `FAILED`, `EXPIRED`, `CANCELLED` with trusted resolution evidence
 - Terminal statuses have no outgoing transitions
 

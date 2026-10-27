@@ -20,6 +20,12 @@ npm test
 npm run typecheck
 ```
 
+## Idempotency and provider boundary
+
+`src/idempotency.mts` defines scoped keys, canonical payload fingerprints, duplicate/fingerprint-mismatch/in-progress/replay/unknown/expiry decisions, and an `AtomicIdempotencyStore` port. It does not implement atomic claims or storage; a future PostgreSQL adapter must enforce the unique scope index and resolve claim conflicts transactionally. A timeout or `UNKNOWN` never authorizes a blind retry. Retention duration is supplied as configuration, and expiry does not silently reclaim a key.
+
+`src/provider-adapter.mts` defines request/result/capability types, a runtime response normalizer that falls back to `UNKNOWN` for malformed responses, and a deterministic `FakePaymentAdapter` for tests. Adapter results are observations only; they cannot mutate a `Payment`. The fake does not connect to any service and is not a production provider.
+
 ## Not implemented
 
-No idempotency persistence/concurrency control, provider adapter, API, webhook authentication, database, ledger, refund, settlement, reconciliation engine, or production financial behavior exists yet.
+No idempotency persistence/concurrency control, API, webhook authentication, PostgreSQL schema/migration/connection, ledger, real refund, settlement, reconciliation engine, production provider implementation, recovery worker, or production financial behavior exists yet. See `docs/architecture/PERSISTENCE_DESIGN.md` and `docs/architecture/IDEMPOTENCY_CONTRACT.md`.
