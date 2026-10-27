@@ -1,0 +1,14 @@
+{
+  "name": "@baturpay/orchestrator-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local task contract and orchestration primitives for BaturPay; no external agent dispatch enabled.",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.mts",
+    "tasks": "node --experimental-strip-types src/cli.mts"
+  }
+}

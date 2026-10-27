@@ -1,63 +1,68 @@
 # Multi-Agent Orchestration Design
 
-Status: proposed design; no dispatcher or automated workflow has been implemented or E2E-tested. Current agent execution remains blocked pending least-privilege isolation and model authorization.
+Status: local dispatcher prototype implemented and tested; external OpenCode execution remains BLOCKED and no end-to-end agent handoff has been tested.
 
 ## Candidate initial architecture
 
-Use Hermes as coordinator and a repository-backed task/evidence contract. Invoke OpenCode or Claude Code as bounded CLI subprocesses from an explicit project worktree. Keep a single implementation owner per task. Run verification as a separate, recorded process. Use Claude as an independent reviewer when available and justified. Hermes determines the final status from machine-checkable task metadata plus Git/test/review evidence.
+Use Hermes as coordinator and a repository-backed task/evidence contract. OpenCode is the sole initial coding agent, invoked as a bounded CLI subprocess only after owner authorization and sandbox validation. Keep one implementation owner per task. Hermes runs verification separately and inspects the diff/evidence before changing status. Claude Code is excluded from the initial architecture. The current local registry/process adapter does not itself prove agent execution or provide a security sandbox.
 
 ```text
 Owner approval (when required)
           |
 Hermes: task contract + routing + dependency/status tracking
           |
-   isolated worktree (one owner)
+   assigned workspace (workflow isolation only)
           |
- OpenCode OR Claude CLI (bounded, scoped permissions)
+ OpenCode CLI (future; authorization + sandbox required)
           |
- automated checks -> pinned diff review -> evidence record
+ automated checks -> Hermes diff/evidence verification
           |
- Hermes: PASS / FAIL / BLOCKED / approval required
+ Hermes: DONE / FAILED / BLOCKED / approval required
+
+Current implemented local components: contract validator, JSON task registry, and bounded subprocess helper. Current OpenCode dispatch: deliberately gated and not executed.
 ```
 
-This is a file/Git/CLI adapter design, not a claim of native Hermes↔OpenCode↔Claude protocol integration. Official product docs and actual runtime tests must confirm every flag and permission behavior before implementation.
+This is a repository-local prototype, not native Hermes↔OpenCode protocol integration. It currently validates/stores tasks and safely runs bounded local processes; it does NOT automatically dispatch tasks, execute validation command lists, create Git worktrees, inspect code diffs, or enforce OS isolation. OpenCode adapter checks readiness and refuses a remote task without explicit owner authorization and a caller-asserted validated sandbox. These are software gates, not proof that a sandbox exists.
 
-## Task contract (proposed JSON)
+## Task contract (TypeScript)
 
-Minimal required fields for a first dispatcher: `task_id`, `title`, `objective`, `owner`, `workspace`, `dependencies`, `acceptance_criteria`, `risk_level`, `status`, `validation_commands`, `evidence`, `review_status`, `approval_required`. Recommended additions before production-like use: `allowed_paths`, `forbidden_paths`, `base_commit`, `timeout_seconds`, `max_attempts`, `artifacts`, `approval_record`, `history`. Validate against a versioned JSON Schema before dispatch and before accepting a result. Never put credentials or sensitive production payloads in a task contract.
+The implemented contract fields are `task_id`, `title`, `objective`, `owner`, `workspace`, `dependencies`, `acceptance_criteria`, `risk_level`, `status`, `validation_commands`, `evidence`, `review_status`, `approval_required`. Allowed owner values are `HERMES` and `OPENCODE`; risk values are `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`; statuses are `PROPOSED`, `READY`, `RUNNING`, `BLOCKED`, `REVIEW`, `DONE`, `FAILED`; review states are `NOT_REQUIRED`, `PENDING`, `APPROVED`, `REJECTED`. Task/evidence validation is implemented in `packages/orchestrator/src/task-contract.mts`. Registry and CLI are local JSON only.
 
-Proposed allowed statuses: `PROPOSED`, `READY`, `RUNNING`, `BLOCKED`, `REVIEW`, `DONE`, `FAILED`. Define guarded transitions: PROPOSED→READY after criteria/workspace/approval checks; READY→RUNNING on exclusive assignment; RUNNING→REVIEW only after bounded exit and verification; any active state may become BLOCKED/FAILED with reason/evidence; REVIEW→DONE only when independent review, tests, scope checks and required approvals are satisfied. Reopening DONE requires a new task/change record.
+The registry guards legal state transitions, dependency completion, workspace realpath under the configured root, exclusive RUNNING ownership for a workspace, successful recorded evidence for every declared validation command, review outcome, and explicit human approval when `approval_required` is true. It does not run arbitrary validation commands, so evidence remains supplied to the registry by its caller; it is structured but not cryptographically attested. Treat the local store as prototype data, not an authoritative production audit log.
 
 Result contract: task ID, summary, changed files, decisions, assumptions, exact commands/exit codes, test outputs/artifact references, risks, unfinished work, and human decisions required. Agent prose alone is not evidence.
 
-## State model
+The test-only Node type stripping approach is currently used; project TypeScript typecheck is not set up or verified. See the roadmap for blockers and tested scope.
 
-Proposed statuses: `BACKLOG`, `READY`, `ASSIGNED`, `RUNNING`, `VERIFYING`, `REVIEW`, `APPROVAL_REQUIRED`, `DONE`, `BLOCKED`, `FAILED`, `CANCELLED`.
+## Implemented local surfaces
 
-Enforce valid transitions (e.g. DONE only from VERIFYING/REVIEW or approval completion with all acceptance criteria evidenced). Record actor, timestamp, prior/new state, and reason. No automatic infinite retries: bounded attempts and deadlines; failures become BLOCKED/FAILED for review.
+- `packages/orchestrator/src/task-contract.mts`: data types, enumerations, runtime validation, state transition rules.
+- `packages/orchestrator/src/task-registry.mts`: local JSON state, atomic rename writes, exclusive writer lock, dependency/workspace/review/evidence/approval gates, symlink-aware workspace-root checks.
+- `packages/orchestrator/src/process-runner.mts`: argument-array process invocation (`shell: false`), allowlisted inherited environment, credential-like extra-variable rejection, output bound, best-effort common-secret redaction, timeout/termination, exit and signal capture.
+- `packages/orchestrator/src/opencode-adapter.mts`: local CLI version/auth/model readiness inspection and a remote-task function gated by owner authorization and caller-supplied sandbox readiness. The remote-task path has NOT run.
+- `packages/orchestrator/src/cli.mts`: local create/list/transition/evidence/review commands; does not execute validation command lists or automatically dispatch agents.
+
+Test command: `npm test` from `packages/orchestrator`; current result 27/27 passing. CLI lifecycle smoke test used a temporary registry and workspace under scratch and was removed afterward.
 
 ## Isolation and permissions
 
-- Create a dedicated Git worktree/branch per code task; refuse dispatch if paths overlap an active task's declared ownership.
-- Verify clean state and expected base commit before dispatch; capture diff and commit afterward.
-- Run agents in project directory only. Avoid global configuration changes and elevated/root execution where a non-root isolated user can later be established safely.
-- No bypass-all-permissions flags by default. Use narrow allowlists and human review for shell/network/install actions.
-- Production credentials, live provider access, deployment and financial operations are prohibited in the initial demo.
-- Preserve logs with secret redaction; log command, version, working tree, timestamps, exit code and evidence hashes, not secrets.
+- No Git worktree or OS sandbox is created by this prototype. Workspace path checking is a defense-in-depth application check, not a security boundary; symlink resolution is checked on registry operations but race/TOCTOU remains possible.
+- Current environment runs as root in LXC. Do not execute OpenCode tasks in this context until infrastructure/owner provides a validated host-enforced boundary and model-use authorization.
+- Do not use permission-bypass flags by default. Production credentials, live provider access, deployment and financial operations are prohibited.
+- The process helper inherits only PATH/HOME/TMPDIR/LANG/LC_ALL/TERM by default and explicitly rejects credential-like extra env variable names. A caller-supplied prompt and already-configured CLI environment still require careful handling.
 
-## Minimal phases before automation
+## Next steps before agent automation
 
-1. Confirm CLI flags and noninteractive behavior from installed-version help and official docs.
-2. Validate task/result schema and state transition logic with local fixtures.
-3. Test worktree isolation and timeout handling using a no-network, non-financial task.
-4. Test one real OpenCode task only after valid authentication/permissions are available.
-5. Run review on the pinned diff via Claude only after authentication is available.
-6. Independently rerun tests and inspect evidence; report any missing phase honestly.
+1. Decide and validate TypeScript type-check approach; current local Node test runner strips types but does not typecheck.
+2. Provide an isolated non-root execution boundary and test filesystem/network limits, timeout, crash handling and review read-only access.
+3. Confirm owner-authorized OpenCode provider, authentication, data policy and cost cap. Current CLI reports no authenticated integration and configured custom endpoint remains unverified.
+4. Add real worktree manager and exclusive file ownership only after tests prove correct behavior.
+5. Run one small OpenCode task only when prior gates pass; independently verify diff/tests/evidence with Hermes.
 
-## Evidence store
+## Evidence and limitations
 
-Keep task JSON, sanitized stdout/stderr, Git base/head/diff references, test reports, review findings, approval record, and timestamps under a task-specific directory ignored if it contains sensitive or local-only output. Repository may later hold sanitized durable records. Define retention and tamper-evidence needs before production usage.
+Registry JSON is prototype state and may use default umask-dependent mode for its containing directory; file content writes request mode `0600`. There is no task history journal/tamper-evidence, process crash recovery for a stale lock, automatic timeout retry controller, validation command executor, output redaction, distributed locking, or secure sandbox. Commands/evidence supplied via CLI are claims until the caller verifies them. Keep secrets out of task fields and evidence.
 
 ## Risks / unresolved
 
-OpenCode and Claude were unauthenticated in initial audit. This prevents live multi-agent demonstration. Running as root increases impact. CLI docs/flags and permissions must be verified against exact local versions. Git worktree support and provider/model costs must be tested. No dispatcher, queue, task registry implementation, evidence store, or timeout/retry controller currently exists.
+OpenCode reports no authenticated integrations; model endpoint trust and costs are unverified. Running as root increases impact. Typecheck not configured. CLI task execution is intentionally blocked/not run. No payment feature is implemented.

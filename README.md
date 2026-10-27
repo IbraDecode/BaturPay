@@ -4,7 +4,7 @@ BaturPay adalah proyek infrastruktur orkestrasi pembayaran yang dibangun dari no
 
 ## Status
 
-Fondasi dokumentasi dan desain awal sedang disiapkan. Belum ada aplikasi pembayaran, integrasi provider, dashboard, worker, database schema, atau layanan produksi yang diimplementasikan. Belum ada provider yang dinyatakan didukung.
+Fondasi dokumentasi dan prototipe orchestrator lokal sedang disiapkan. Task contract, validator, state transitions, registry JSON, dan bounded process runner telah diimplementasikan dan diuji lokal. Belum ada dispatcher yang menjalankan OpenCode, aplikasi pembayaran, integrasi provider, dashboard, worker, database schema, atau layanan produksi. Belum ada provider yang dinyatakan didukung.
 
 ## Visi dan ruang lingkup awal
 

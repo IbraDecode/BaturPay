@@ -30,6 +30,9 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 
+# Local task registry / prototype state
+packages/orchestrator/.local-state/
+
 # Agent scratch/session artifacts (keep shared project rules tracked)
 .agent-tmp/
 .agent-work/

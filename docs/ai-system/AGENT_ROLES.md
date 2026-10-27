@@ -10,9 +10,13 @@ Owns project planning, research coordination, task decomposition, dependency/con
 
 Default owner for bounded implementation tasks after repository instructions, scope, and acceptance criteria are explicit. May implement, test, debug, and document within the assigned isolated worktree and permissions. Must return changed files, exact verification commands/results, assumptions, risks, and incomplete work. No simultaneous ownership of the same files with another agent.
 
-## Claude Code — specialist / independent reviewer
+## Claude Code — excluded from initial architecture
 
-Use when complexity, independent analysis, or risk warrants it. For review tasks, inspect a pinned diff/commit independently and report actionable findings (location, evidence, severity, reproduction, recommendation); do not silently edit the active implementer's worktree. For implementation, give Claude sole ownership of its scoped isolated task. Do not presume it is always more capable or always the reviewer.
+Claude Code is not part of the initial BaturPay agent architecture and is not a dependency, reviewer, or readiness blocker. Hermes performs independent verification using acceptance criteria, automated tests, and diff inspection. A separate reviewer may be proposed later only if a concrete need and authorization justify it; do not claim Claude Code reviewed any change.
+
+## OpenCode — primary implementation worker
+
+Default owner for bounded implementation tasks after repository instructions, scope, and acceptance criteria are explicit. May implement, test, debug, and document within the assigned workspace and permissions. Must return changed files, exact verification commands/results, assumptions, risks, and incomplete work. No simultaneous ownership of the same files with another process.
 
 ## Human owner
 
@@ -20,13 +24,13 @@ Approves business/regulatory/financial policy, provider/commercial selection, pr
 
 ## Assignment rules
 
+- Hermes owns orchestration and verification; OpenCode is the only initial coding agent.
 - Exactly one implementation owner per code task.
-- Reviewer is a separate role from the active implementer.
-- Scope files and exclusions are explicit; use isolated branch/worktree.
-- Keep a named task ID and retain source commit, diff, tests, review, and decision records.
+- Scope files and exclusions are explicit; use a separate worktree where available, but do not treat it as a security sandbox.
+- Keep a named task ID and retain source commit, diff, tests, evidence, and decision records.
 - Credentials and production access are excluded by default.
-- If authentication, provider access, or policy blocks a task, mark BLOCKED and continue independent work.
+- If OpenCode execution is not authorized or safe, mark only the agent task BLOCKED and continue independent local work.
 
 ## Evaluation
 
-Evaluate actual tool versions, authentication, bounded run behavior, permission controls, output structure, deterministic evidence, and failure/timeout handling before automating assignments. Current status: binaries exist; OpenCode and Claude authentication absent in initial checks; cross-agent task execution untested.
+Current evidence: OpenCode v2.2.0 installed, but `opencode auth list` reports no authenticated integrations; a configured custom model endpoint remains unverified and was not called. Hermes has implemented and locally tested the initial task contract/registry and bounded process adapter. No OpenCode task has run. Claude Code is deliberately unused.
