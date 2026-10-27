@@ -1,6 +1,6 @@
 # Skills and Integrations Inventory
 
-Status: initial inventory only; no third-party skill, MCP server, plugin, hook, or dependency installed for BaturPay.
+Status: updated 2026-10-27. Inventory of local Hermes skills and official integrations; no third-party skill, MCP server, plugin, hook, or dependency installed for BaturPay. Hermes docs warn skill instructions/scripts execute with host capabilities; review before invocation.
 
 ## Existing relevant local Hermes skills
 
@@ -20,9 +20,9 @@ This table records named local skill catalog entries and does not certify their 
 
 | Integration | Current status | Action |
 |---|---|---|
-| OpenCode CLI | Installed v2.2.0; no authenticated integrations per `opencode auth list`. | Candidate bounded subprocess adapter; no run. |
-| Claude Code CLI | Installed v2.1.311; auth status not logged in. | Candidate review/engineering adapter; no run. |
-| Hermes delegation | Built-in Hermes delegation documented and active as tool capability in this session. | Can coordinate Hermes subagents, but does not by itself prove external CLI collaboration. |
+| OpenCode CLI | Installed v2.2.0; no authenticated integrations per `opencode auth list`; `opencode debug paths` confirms config directory. | Candidate bounded subprocess adapter; no run. Official CLI supports `run`, agent, auth and MCP commands. |
+| Claude Code CLI | Installed v2.1.311; `claude auth status` says not logged in. | Candidate reviewer/engineering adapter; no run. Official CLI docs cover print mode, agents, permissions and MCP. |
+| Hermes delegation | Built-in Hermes delegation documented; this session has the tool, but its use here was not an external coding task. | Can coordinate Hermes subagents, but does not by itself prove external CLI collaboration or sandboxing. |
 | MCP servers | No project MCP configured. Hermes doctor found no suspicious MCP stdio commands globally. | None added; not required for first prototype. |
 | Project hooks/plugins | None created. | Defer until concrete use case and version-specific security review. |
 | Task registry/dispatcher | None implemented. | Design document only; first prove a bounded CLI task and worktree isolation. |

@@ -1,6 +1,6 @@
 # Multi-Agent Orchestration Design
 
-Status: proposal only. No dispatcher or automated workflow has been implemented or E2E-tested.
+Status: proposed design; no dispatcher or automated workflow has been implemented or E2E-tested. Current agent execution remains blocked pending least-privilege isolation and model authorization.
 
 ## Candidate initial architecture
 
@@ -24,7 +24,9 @@ This is a file/Git/CLI adapter design, not a claim of native Hermes↔OpenCode�
 
 ## Task contract (proposed JSON)
 
-Required fields: `schema_version`, `task_id`, `title`, `goal`, `scope`, `allowed_paths`, `forbidden_paths`, `owner_agent`, `dependencies`, `acceptance_criteria`, `verification_commands`, `timeout_seconds`, `max_attempts`, `status`, `artifacts`, `evidence`, `review`, `approval`, `history`. Validate against a versioned JSON Schema before dispatch and before accepting a result. Never put credentials or sensitive production payloads in a task contract.
+Minimal required fields for a first dispatcher: `task_id`, `title`, `objective`, `owner`, `workspace`, `dependencies`, `acceptance_criteria`, `risk_level`, `status`, `validation_commands`, `evidence`, `review_status`, `approval_required`. Recommended additions before production-like use: `allowed_paths`, `forbidden_paths`, `base_commit`, `timeout_seconds`, `max_attempts`, `artifacts`, `approval_record`, `history`. Validate against a versioned JSON Schema before dispatch and before accepting a result. Never put credentials or sensitive production payloads in a task contract.
+
+Proposed allowed statuses: `PROPOSED`, `READY`, `RUNNING`, `BLOCKED`, `REVIEW`, `DONE`, `FAILED`. Define guarded transitions: PROPOSED→READY after criteria/workspace/approval checks; READY→RUNNING on exclusive assignment; RUNNING→REVIEW only after bounded exit and verification; any active state may become BLOCKED/FAILED with reason/evidence; REVIEW→DONE only when independent review, tests, scope checks and required approvals are satisfied. Reopening DONE requires a new task/change record.
 
 Result contract: task ID, summary, changed files, decisions, assumptions, exact commands/exit codes, test outputs/artifact references, risks, unfinished work, and human decisions required. Agent prose alone is not evidence.
 

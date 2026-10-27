@@ -1,10 +1,12 @@
 # Environment Security Audit
 
-Status: IN_PROGRESS; local baseline only. No host hardening or global configuration changes were made.
+Status: VERIFIED for read-only inventory in this phase; no host hardening or global configuration changes were made.
 
 ## Observed environment
 
-- Linux x86_64; audit process is UID 0 (`root`). Running coding agents as root gives them broad filesystem and system authority and raises the impact of malicious instructions, compromised dependencies, or mistakes.
+- Linux x86_64 kernel `7.0.14-23-pve`; `systemd-detect-virt` reports `lxc`. Audit process UID/EUID 0 (`root`). Running coding agents as root gives them broad filesystem and system authority and raises the impact of malicious instructions, compromised dependencies, or mistakes.
+- `unshare --user --map-root-user true` succeeded; this only confirms user namespaces are usable, not mount/network isolation. `systemd --user` reports `running`.
+- AppArmor module is loaded with 11 enforced system profiles, but `aa-status` reports zero processes with profiles defined/enforced. Therefore no agent confinement by AppArmor was evidenced.
 - `/root/.hermes/config.yaml` exists with mode `0600`; Hermes home includes credential-related stores. Secret values were not read into this report.
 - `/root/.config/opencode/opencode.json` exists with mode `0644` and contains an API-key field; see `OPENCODE_CONFIG_AUDIT.md`. Value not printed.
 - `/root/.claude/settings.json` mode `0644` and contains theme-only settings as observed. Claude auth status says not logged in.

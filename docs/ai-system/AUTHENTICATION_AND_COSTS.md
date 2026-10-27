@@ -21,7 +21,7 @@ The present custom provider URL and credential-field configuration is not indepe
 
 Official references: https://code.claude.com/docs/en/authentication and https://code.claude.com/docs/en/costs . Claude Code supports authentication through Anthropic/Claude account flows, including Console/API-key pathways depending on organization policy and account. Some subscription plans may authorize Claude Code usage, but access, quotas and extra usage depend on plan/admin policy; API-key use is usage billed. A Claude subscription does not automatically authorize a separate third-party tool or Hermes/OpenCode integration.
 
-Owner may run the official interactive login flow locally (e.g. `claude` and follow its `/login` workflow; current exact command should be checked with installed `claude --help` and official docs). Never transmit a token to Hermes. Verify with `claude auth status`. For future print-mode calls, specify bounded `--max-turns`, a narrow tool allowlist, and where relevant `--max-budget-usd`; do not enable permission bypass.
+Owner may run the official interactive login flow locally (e.g. `claude` and follow its `/login` workflow; confirm exact command against installed `claude --help` and official docs). Never transmit a token to Hermes. Verify with `claude auth status`. For this installed v2.1.311, local help confirmed `--max-budget-usd`, `--allowedTools` and permission-mode options, but the captured help did NOT show `--max-turns`; do not rely on that flag until exact support is verified. Prefer a narrow tool allowlist, explicit timeout at the process supervisor, and supported spend limits; do not enable permission bypass.
 
 ### Hermes
 

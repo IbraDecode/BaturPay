@@ -1,22 +1,33 @@
 # OpenCode Configuration Security Audit
 
-Status: IN_PROGRESS; static metadata audit only, not a full secret-scanner or filesystem-access review.
+Status: VERIFIED for local metadata and structural checks; credential validity and endpoint trust remain OPEN.
 
-## Scope and method
+## Officially identified configuration path
 
-Checked the local config path `/root/.config/opencode/opencode.json` without printing credential values. The file exists, is 548 bytes, and has mode `0644`. A sanitized structural read showed an OpenAI-compatible provider configuration with a custom base URL and an `apiKey` field; the value was redacted. The configured model/provider is recorded only in local context and is not copied here. `opencode auth list` reported no authenticated integrations. No permission or config content was changed.
+OpenCode v2.2.0 `opencode debug paths` reports global config directory `/root/.config/opencode`. The discovered file `/root/.config/opencode/opencode.json` is a regular file, not a symlink, at its resolved path. Official references: https://opencode.ai/docs/config/ and https://opencode.ai/docs/cli (CLI documents `opencode debug paths`; local command output confirmed paths).
 
-## Findings
+## Observed facts (credential values withheld)
 
-- Mode `0644` makes the configuration readable by other local users if the file is on a multi-user system. It contains a credential field, but this audit does not establish whether the value is a valid secret, a placeholder, or usable.
-- The custom base URL is a tunnel-like hostname. This audit did not validate its operator, TLS, data handling, availability, billing, or whether requests are forwarded to an authorized model endpoint. Do not send project secrets or sensitive source to it without owner verification.
-- The file is outside `/root/baturpay`; no project-level OpenCode configuration was created.
-- No credentials were printed, copied, or changed. No live request was sent.
+- Config file owner UID 0, group GID 0, mode `0644`, size 548 bytes.
+- Parent `/root` mode `0700`, owner/group 0:0; `/root/.config` and `/root/.config/opencode` mode `0755`, owner/group 0:0.
+- JSON is parseable and contains a provider `options.apiKey` field whose value is a non-empty literal string of length 35. The value was never printed, copied, logged, or sent to any service. Classification as “non-empty literal” does not establish that it is a valid, active, or provider-issued credential; it might be a placeholder or another value.
+- The JSON also defines an OpenAI-compatible provider endpoint. Its owner, data handling, TLS behavior, model availability and billing were not independently verified. No request was sent.
+- `opencode auth list` reports no authenticated integrations.
+- `/root/baturpay` Git history contains no OpenCode config path; initial secret-pattern scan of project files found no candidate credential. The config is outside the repository. No broad machine backup/history scan was performed.
+- No file permission/content, credential, or authentication setting was modified.
 
-## Recommendation
+## Access/risk interpretation
 
-Owner should locally confirm the provider endpoint and credential provenance. If the credential is real, treat it as exposed to local users with read access and review whether rotation is warranted through the provider's official controls. Any permission correction must follow a human-approved plan; none was applied by this audit. Prefer documented OpenCode auth storage or a trusted secret mechanism after verifying compatibility and ownership. Avoid embedding provider credentials in project config or committing them.
+The file mode `0644` alone allows reads by any process that can traverse all parent directories. Here `/root` is mode `0700`, which ordinarily prevents other unprivileged local users from traversing into `/root`; therefore the specific claim that ordinary local users can read this file is NOT established by the `0644` mode alone. UID 0 and privileged processes can read it. Other privileged services, backups, host namespaces, ACLs, or alternate mounts were not audited. The mode is broader than necessary as defense-in-depth, but no correction is made without owner approval.
 
-## Verification limits
+## Recommended owner actions (not performed)
 
-A local structural scan and file mode check are not proof that the credential is absent from backups, process memory, shell history, or previous Git history. No token value is retained in this report.
+1. Confirm locally whether the non-empty literal is an actual secret or a placeholder; do not paste it into chat or send it to an endpoint.
+2. Verify the custom endpoint operator, TLS certificate, terms, data retention, and billing before sending any project source.
+3. If it is a real provider credential and access/exposure is unacceptable, rotate/revoke through the provider's official console, then update OpenCode through its supported credential mechanism; verify the new status without printing the value. Do not rotate automatically.
+4. Consider restricting file mode (e.g. owner-only) after verifying which user/process must read it. This report intentionally made no permission change.
+5. Re-scan backups or other Git repositories only if the owner requests and defines scope. No credential was found in the BaturPay repository's commits by path or heuristic scan.
+
+## Recovery considerations
+
+Before changing config, owner should preserve an appropriately protected backup, record current provider/model names without secrets, adjust through OpenCode's documented settings/auth UI where possible, validate with `opencode auth list` and a bounded authorized request only if cost is approved, and restore the protected backup if the supported configuration becomes unusable. Rotation invalidates the old key and may interrupt other clients; check dependencies first. No recovery action has been taken.

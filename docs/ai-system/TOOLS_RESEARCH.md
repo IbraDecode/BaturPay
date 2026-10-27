@@ -1,13 +1,13 @@
 # Tooling Research: Hermes, OpenCode, Claude Code
 
-Research date: 2026-10-27 (environment conversation date). Local version/help/auth checks are from this session. Official documentation pages are living documents; retain a review date and recheck against installed versions before automation.
+Research date: 2026-10-27. Rechecked local versions/status and official docs on this phase. Official pages are living, not pinned to these binaries; feature claims remain documented-vs-tested separately. Status: partial research; runtime multi-agent use BLOCKED.
 
 ## Local installation and execution evidence
 
 | Tool | Installed version | Local evidence | Auth/config readiness | Runtime task test |
 |---|---|---|---|---|
 | Hermes Agent | `0.22.5 (2026.9.24) stable local bf0203a794a0` | `hermes --version`; `hermes --help`; `hermes doctor` | Hermes config exists, mode 0600; doctor notes configured API key/custom endpoint (values withheld). Doctor exit 1 with warnings and some optional dependencies missing. | Not tested as coding executor for BaturPay. Built-in Hermes delegation is documented and available in this session, but external CLI delegation untested. |
-| OpenCode | `2.2.0` | `opencode --version`; `opencode --help` | `opencode auth list` returned `No authenticated integrations`. A provider config exists; no credential value is documented here. | Not run; no authenticated integration was reported. |
+| OpenCode | `2.2.0` | `opencode --version`; `opencode --help`; `opencode debug paths` | `opencode auth list` returned `No authenticated integrations`. Config directory is `/root/.config/opencode`; see security audit for metadata only. | Not run; no authenticated integration was reported. |
 | Claude Code | `2.1.311` | `claude --version`; `claude --help`; `claude auth status` | Auth status: `loggedIn: false`, method `none`. | Not run; no authenticated integration. |
 
 Do not include secrets from local configuration in this report. The project config security concern is separately recorded in `docs/security/SECURITY_BASELINE.md`.
@@ -32,13 +32,16 @@ Do not include secrets from local configuration in this report. The project conf
 
 1. Hermes documentation — Delegation: https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation — describes `delegate_task`, isolated child context, worktree isolation configuration and delegation limitations. Version-specific runtime behavior remains to be tested.
 2. Hermes documentation — CLI commands: https://hermes-agent.nousresearch.com/docs/reference/cli-commands — `hermes mcp` and command reference.
-3. OpenCode CLI: https://opencode.ai/docs/cli — documents CLI commands, `run`, custom agents, MCP and server options. Local `opencode --help` confirmed installed command surface generally, but flags may differ; confirm exact flags with installed help.
+3. OpenCode CLI: https://opencode.ai/docs/cli — documents CLI commands, `run`, custom agents, MCP, auth and server options. Local `opencode run --help` confirmed `run`, `--agent`, `--model`, `--format`, and `--file`; local `opencode debug paths` confirmed the config directory. Local `opencode config --help` was not a valid invocation for reading settings (it attempted to change to a directory called `config`); no configuration values were printed by that failed call.
 4. OpenCode agents: https://opencode.ai/docs/agents — documents agent modes and permission controls.
 5. OpenCode permissions: https://opencode.ai/docs/permissions — documents `allow`, `ask`, `deny`, per-agent rules, and auto mode. Auto mode is intentionally not selected as default.
 6. Claude Code CLI reference: https://code.claude.com/docs/en/cli-reference — documents print mode, agents and CLI options.
 7. Claude Code hooks: https://code.claude.com/docs/en/hooks — hooks reference.
 8. Claude Code subagents: https://code.claude.com/docs/en/sub-agents — custom subagent documentation.
 9. Claude Code permissions: https://code.claude.com/docs/en/permissions — permission configuration.
+10. OpenCode providers/auth: https://opencode.ai/docs/providers/ and https://opencode.ai/docs/cli — provider-specific API-key/OAuth methods and `opencode auth login`; auth status was not configured for the currently selected provider. No login was attempted.
+11. Hermes security: https://hermes-agent.nousresearch.com/docs/user-guide/security — approvals and tool security; skills: https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills — skill trust and environment-variable handling; MCP: https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp — MCP config/auth behavior.
+12. Claude Code authentication: https://code.claude.com/docs/en/authentication; costs: https://code.claude.com/docs/en/costs — official account/API authentication and cost management. No login was attempted.
 
 The official pages are living web documents, not version-pinned copies. Confirm current behavior against local `--help` and a sandbox test before relying on a flag. Search/extract for this matrix completed; a complete crawl of every feature area requested in the master directive has not yet been performed.
 
