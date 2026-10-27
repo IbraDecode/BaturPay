@@ -8,7 +8,7 @@
     "node": ">=22.6.0"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test test/*.test.mts",
+    "test": "node --experimental-strip-types --test test/*.test.mts ../domain/test/*.test.mts",
     "typecheck": "tsc --project tsconfig.json",
     "tasks": "node --experimental-strip-types src/cli.mts"
   },

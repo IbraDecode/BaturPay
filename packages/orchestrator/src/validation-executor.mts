@@ -130,7 +130,7 @@ export class ValidationExecutor {
     if (command === "ORCHESTRATOR_TESTS") {
       return {
         executable: nodePath,
-        args: ["--experimental-strip-types", "--test", "test/process-runner.test.mts", "test/task-contract.test.mts", "test/task-registry-gates.test.mts", "test/task-registry.test.mts"],
+        args: ["--experimental-strip-types", "--test", "test/process-runner.test.mts", "test/task-contract.test.mts", "test/task-registry-gates.test.mts", "test/task-registry.test.mts", "test/validation-executor.test.mts", "../domain/test/payment-state.test.mts"],
       };
     }
     return {

@@ -2,12 +2,14 @@
 
 Status: research and procedure notes; no login flow started and no provider credentials changed. User must authorize any paid account use.
 
-## Current local status
+## Current local status (rechecked 2026-10-27)
 
-- OpenCode `2.2.0`: `opencode auth list` reported no authenticated integrations. A configured OpenAI-compatible provider exists in the global config, but it is not reported as an authenticated integration. Do not assume it works or is trusted; see the OpenCode config audit.
-- Claude Code `2.1.311`: `claude auth status` reported `loggedIn: false`, `authMethod: none`.
-- Hermes Agent `0.22.5`: active Hermes session has a configured custom provider, but this is not proof that OpenCode or Claude can use the same account, subscription, or endpoint. Do not share Hermes tokens or config with either tool.
-- GitHub CLI is authenticated as `IbraDecode`; do not expose its credential or let untrusted agent code use it.
+- OpenCode `2.2.0`: `opencode auth list` reports `No authenticated integrations`. Global config selects model `ibra-studio/cx/gpt-6-luna[1m]` under provider alias `ibra-studio` / display name `IBRA STUDIO AI`. The config has a custom `baseURL` and a non-empty literal `apiKey` field; the value is withheld and was not tested. Endpoint operator, TLS/data handling, account ownership, model availability and pricing remain unverified. Do not send project source or credentials to this endpoint until the owner verifies and authorizes it. See `../security/OPENCODE_CONFIG_AUDIT.md`.
+- OpenCode model catalog lists the configured model and several public/free-labelled models. Catalog presence is not evidence that a model can be used, is free, or is authorized; no model request was made.
+- Claude Code is excluded from the initial BaturPay architecture and is not a readiness dependency.
+- Hermes Agent `0.22.5` uses its own configured provider/session. This does not establish that OpenCode can use Hermes credentials, account entitlement or endpoint. Never copy Hermes credentials/config into OpenCode.
+- GitHub CLI is authenticated as `IbraDecode`; keep its credential outside coding-agent subprocesses.
+- No owner authorization for external-model cost, endpoint trust or sending project source was identified in this phase.
 
 ## Official documented sign-in paths
 

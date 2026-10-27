@@ -4,7 +4,7 @@ BaturPay adalah proyek infrastruktur orkestrasi pembayaran yang dibangun dari no
 
 ## Status
 
-Fondasi dokumentasi dan prototipe orchestrator lokal sedang disiapkan. Task contract, validator, state transitions, registry JSON, dan bounded process runner telah diimplementasikan dan diuji lokal. Belum ada dispatcher yang menjalankan OpenCode, aplikasi pembayaran, integrasi provider, dashboard, worker, database schema, atau layanan produksi. Belum ada provider yang dinyatakan didukung.
+Fondasi dokumentasi, prototipe orchestrator lokal, dan pure payment state-transition model tersedia. Task contract/registry, fixed local test/typecheck executor, dan payment transition logic memiliki tests; strict typecheck dijalankan terpisah. Belum ada OpenCode task yang dijalankan, payment API, provider adapter nyata, database schema, webhook verifier, ledger, dashboard, worker, atau layanan produksi. Belum ada provider yang dinyatakan didukung.
 
 ## Visi dan ruang lingkup awal
 
@@ -19,6 +19,7 @@ BaturPay bukan wallet atau platform perbankan berdasarkan keputusan proyek saat 
 - Dokumentasi otoritatif dan batas keputusan: `docs/ai-system/PROJECT_CONTEXT.md`.
 - Instruksi coding agent: `AGENTS.md`.
 - Desain arsitektur awal: `docs/architecture/ARCHITECTURE_PRINCIPLES.md`.
+- Status dan batas payment state machine: `docs/architecture/PAYMENT_DOMAIN_FOUNDATION.md`.
 - Alur verifikasi: `docs/engineering/DEVELOPMENT_WORKFLOW.md`.
 - Keputusan terbuka: `docs/ai-system/OPEN_DECISIONS.md`.
 
