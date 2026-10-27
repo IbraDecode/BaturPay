@@ -17,12 +17,16 @@ export type RiskLevel = (typeof RISK_LEVELS)[number];
 export type TaskOwner = (typeof OWNERS)[number];
 export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
 
+export const EVIDENCE_SOURCES = ["CALLER", "EXECUTED", "HERMES_REVIEW"] as const;
+export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
+
 export interface TaskEvidence {
   command: string;
   exit_code: number;
   summary: string;
   recorded_at: string;
   agent: TaskOwner;
+  source: EvidenceSource;
   files_changed: string[];
 }
 
@@ -70,6 +74,7 @@ export function isTaskEvidence(value: unknown): value is TaskEvidence {
     typeof item.recorded_at === "string" &&
     !Number.isNaN(Date.parse(item.recorded_at)) &&
     isOneOf(OWNERS, item.agent) &&
+    isOneOf(EVIDENCE_SOURCES, item.source) &&
     Array.isArray(item.files_changed) &&
     item.files_changed.every(REQUIRED_TEXT)
   );

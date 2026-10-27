@@ -5,16 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TaskRegistry } from "../src/task-registry.mts";
 import type { TaskContract } from "../src/task-contract.mts";
+import { ValidationExecutor } from "../src/validation-executor.mts";
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "baturpay-task-registry-"));
-  const workspace = join(root, "work");
-  await mkdir(workspace);
-  const registry = new TaskRegistry({ filePath: join(root, "state", "tasks.json"), allowedWorkspaceRoot: root });
+  const workspace = process.cwd();
+  const registry = new TaskRegistry({ filePath: join(root, "state", "tasks.json"), allowedWorkspaceRoot: workspace });
   const task: TaskContract = {
     task_id: "task-registry-01", title: "Registry test", objective: "Exercise local task storage.", owner: "HERMES",
     workspace, dependencies: [], acceptance_criteria: ["Task stored safely."], risk_level: "LOW", status: "PROPOSED",
-    validation_commands: ["node --test"], evidence: [], review_status: "NOT_REQUIRED", approval_required: false,
+    validation_commands: ["ORCHESTRATOR_TYPECHECK"], evidence: [], review_status: "NOT_REQUIRED", approval_required: false,
   };
   return { root, workspace, registry, task };
 }
@@ -29,6 +29,16 @@ test("creates and reads a validated task in atomic local JSON storage", async ()
     assert.equal(read.value?.task_id, f.task.task_id);
     const raw = await readFile(join(f.root, "state", "tasks.json"), "utf8");
     assert.equal(JSON.parse(raw).schema_version, 1);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("rejects forged initial task status, review, or evidence", async () => {
+  const f = await fixture();
+  try {
+    assert.equal((await f.registry.create({ ...f.task, status: "DONE" })).error?.code, "INVALID_INITIAL_STATE");
+    assert.equal((await f.registry.create({ ...f.task, review_status: "APPROVED" })).error?.code, "INVALID_INITIAL_STATE");
+    assert.equal((await f.registry.create({ ...f.task, evidence: [{ command: "ORCHESTRATOR_TYPECHECK", exit_code: 0, summary: "fake", recorded_at: new Date().toISOString(), agent: "HERMES", source: "EXECUTED", files_changed: [] }] })).error?.code, "INVALID_INITIAL_STATE");
+    assert.equal((await f.registry.create(f.task)).ok, true);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
@@ -62,7 +72,9 @@ test("gates READY on completed dependencies and RUNNING on workspace ownership",
     await f.registry.transition(dependency.task_id, "RUNNING", { workspaceValid: true });
     assert.equal((await f.registry.transition(dependent.task_id, "READY", { workspaceValid: true })).error?.code, "DEPENDENCIES_PENDING");
     assert.equal((await f.registry.transition(dependent.task_id, "RUNNING", { workspaceValid: true })).error?.code, "TRANSITION_NOT_ALLOWED");
-    await f.registry.appendEvidence(dependency.task_id, { command: "node --test", exit_code: 0, summary: "dependency checks passed", recorded_at: new Date().toISOString(), agent: "HERMES", files_changed: [] });
+    const validation = await new ValidationExecutor({ packageRoot: f.workspace }).run(dependency.validation_commands, f.workspace);
+    assert.equal(validation.status, "VERIFIED");
+    assert.equal((await f.registry.appendValidationRun(dependency.task_id, validation)).ok, true);
     assert.equal((await f.registry.transition(dependency.task_id, "REVIEW", { validationPassed: true, evidenceComplete: true })).ok, true);
     assert.equal((await f.registry.transition(dependency.task_id, "DONE", { validationPassed: true, evidenceComplete: true })).ok, true);
     assert.equal((await f.registry.transition(dependent.task_id, "READY", { workspaceValid: true })).ok, true);

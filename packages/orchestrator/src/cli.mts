@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { TaskRegistry } from "./task-registry.mts";
+import { ValidationExecutor } from "./validation-executor.mts";
 import { REVIEW_STATUSES, TASK_STATUSES, type ReviewStatus, type TaskStatus, type TransitionContext } from "./task-contract.mts";
 
 function usage(): string {
@@ -8,6 +9,7 @@ function usage(): string {
     "Usage:",
     "  node --experimental-strip-types src/cli.mts --registry <absolute-file> --workspace-root <absolute-dir> create <task-json-file>",
     "  node --experimental-strip-types src/cli.mts --registry <absolute-file> --workspace-root <absolute-dir> list",
+    "  node --experimental-strip-types src/cli.mts --registry <absolute-file> --workspace-root <absolute-dir> validate <task-id>",
     "  node --experimental-strip-types src/cli.mts --registry <absolute-file> --workspace-root <absolute-dir> transition <task-id> <status> [--dependencies-done] [--workspace-valid] [--validation-passed] [--evidence-complete] [--review-status <value>] [--approval-granted] [--failure-reason <text>]",
     "  node --experimental-strip-types src/cli.mts --registry <absolute-file> --workspace-root <absolute-dir> evidence <task-id> <evidence-json-file>",
     "  node --experimental-strip-types src/cli.mts --registry <absolute-file> --workspace-root <absolute-dir> review <task-id> <APPROVED|REJECTED|NOT_REQUIRED> <evidence-json-file>",
@@ -50,6 +52,25 @@ async function main(args: string[]): Promise<number> {
     json(await registry.list());
     return 0;
   }
+  if (command === "validate") {
+    const taskId = commandArgs[0];
+    if (!taskId) return 2;
+    const found = await registry.get(taskId);
+    if (!found.ok || !found.value) { json(found); return 1; }
+    if (found.value.status !== "RUNNING") {
+      json({ ok: false, error: { code: "TASK_NOT_RUNNING", message: "Only RUNNING tasks may enter validation." } });
+      return 1;
+    }
+    const executor = new ValidationExecutor({ packageRoot: found.value.workspace });
+    const run = await executor.run(found.value.validation_commands, found.value.workspace);
+    if (run.status === "BLOCKED") {
+      json({ ok: false, validation: run, evidence_persisted: false });
+      return 1;
+    }
+    const persisted = await registry.appendValidationRun(taskId, run);
+    json({ ok: persisted.ok, validation: run, task: persisted.value, error: persisted.error, evidence_persisted: persisted.ok });
+    return persisted.ok && run.status === "VERIFIED" ? 0 : 1;
+  }
   if (command === "evidence") {
     const [taskId, evidenceFile] = commandArgs;
     if (!taskId || !evidenceFile) return 2;
@@ -79,7 +100,7 @@ async function main(args: string[]): Promise<number> {
       evidenceComplete: flag(commandArgs, "--evidence-complete"),
       approvalGranted: flag(commandArgs, "--approval-granted"),
       ...(reviewRaw ? { reviewStatus: reviewRaw as ReviewStatus } : {}),
-      ...(valueAfter(commandArgs, "--failure-reason") ? { failureReason: valueAfter(commandArgs, "--failure-reason") } : {}),
+      ...(valueAfter(commandArgs, "--failure-reason") ? { failureReason: valueAfter(commandArgs, "--failure-reason")! } : {}),
     };
     const result = await registry.transition(taskId, nextRaw as TaskStatus, context);
     json(result);

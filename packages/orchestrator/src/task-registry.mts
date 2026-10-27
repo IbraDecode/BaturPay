@@ -9,6 +9,7 @@ import {
   type TaskStatus,
   type TransitionContext,
 } from "./task-contract.mts";
+import type { ValidationRun } from "./validation-executor.mts";
 
 export interface TaskRegistryOptions {
   filePath: string;
@@ -53,6 +54,9 @@ export class TaskRegistry {
       return { ok: false, error: { code: "INVALID_TASK", message: validation.errors.map((issue) => `${issue.path}: ${issue.message}`).join("; ") } };
     }
     const task = validation.value;
+    if (task.status !== "PROPOSED" || task.evidence.length !== 0 || ["APPROVED", "REJECTED"].includes(task.review_status)) {
+      return { ok: false, error: { code: "INVALID_INITIAL_STATE", message: "New tasks must start PROPOSED with no evidence and no prior review decision." } };
+    }
     if (!(await this.workspaceIsAllowed(task.workspace))) {
       return { ok: false, error: { code: "WORKSPACE_OUTSIDE_ROOT", message: "Task workspace must resolve within the configured workspace root." } };
     }
@@ -110,14 +114,14 @@ export class TaskRegistry {
 
       if (task.status === "RUNNING" && next === "REVIEW") {
         effectiveContext.validationPassed = task.validation_commands.length > 0 && task.validation_commands.every((command) =>
-          task.evidence.some((item) => item.command === command && item.exit_code === 0),
+          task.evidence.some((item) => item.command === command && item.exit_code === 0 && item.source === "EXECUTED"),
         );
         effectiveContext.evidenceComplete = effectiveContext.validationPassed;
       }
       if (task.status === "REVIEW" && next === "DONE") {
         effectiveContext.reviewStatus = task.review_status;
         effectiveContext.validationPassed = task.validation_commands.length > 0 && task.validation_commands.every((command) =>
-          task.evidence.some((item) => item.command === command && item.exit_code === 0),
+          task.evidence.some((item) => item.command === command && item.exit_code === 0 && item.source === "EXECUTED"),
         );
         effectiveContext.evidenceComplete = effectiveContext.validationPassed;
       }
@@ -126,7 +130,7 @@ export class TaskRegistry {
       }
 
       const transition = transitionTask(task, next, effectiveContext);
-      if (!transition.ok || !transition.status) return { ok: false, error: transition.error };
+      if (!transition.ok || !transition.status) return { ok: false, error: transition.error ?? { code: "TRANSITION_FAILED", message: "Task transition failed without a detailed reason." } };
       const updated: TaskContract = { ...task, status: transition.status };
       if (next === "REVIEW" && task.review_status === "NOT_REQUIRED") updated.review_status = "NOT_REQUIRED";
       else if (next === "REVIEW") updated.review_status = "PENDING";
@@ -137,7 +141,7 @@ export class TaskRegistry {
   }
 
   async recordReview(taskId: string, reviewStatus: "APPROVED" | "REJECTED" | "NOT_REQUIRED", evidence: TaskContract["evidence"][number]): Promise<RegistryResult<TaskContract>> {
-    if (!isTaskEvidence(evidence) || evidence.agent !== "HERMES" || evidence.exit_code !== 0) {
+    if (!isTaskEvidence(evidence) || evidence.agent !== "HERMES" || evidence.source !== "HERMES_REVIEW" || evidence.exit_code !== 0) {
       return { ok: false, error: { code: "INVALID_REVIEW_EVIDENCE", message: "Review evidence must be a valid successful HERMES verification record." } };
     }
     return this.withLock(async () => {
@@ -152,13 +156,45 @@ export class TaskRegistry {
     });
   }
 
-  async appendEvidence(taskId: string, evidence: TaskContract["evidence"][number]): Promise<RegistryResult<TaskContract>> {
+  async appendValidationRun(taskId: string, run: ValidationRun): Promise<RegistryResult<TaskContract>> {
+    if (!["VERIFIED", "FAILED", "BLOCKED"].includes(run.status) || run.steps.length === 0 || run.steps.some((step) => step.status === "REQUESTED" || step.status === "RUNNING")) {
+      return { ok: false, error: { code: "VALIDATION_RUN_INCOMPLETE", message: "Only completed validation runs may be recorded." } };
+    }
+    return this.withLock(async () => {
+      const registry = await this.readRegistry();
+      const index = registry.tasks.findIndex((task) => task.task_id === taskId);
+      if (index < 0) return { ok: false, error: { code: "TASK_NOT_FOUND", message: "Task was not found." } };
+      const task = registry.tasks[index]!;
+      if (task.status !== "RUNNING") return { ok: false, error: { code: "TASK_NOT_RUNNING", message: "Validation can only be recorded for a RUNNING task." } };
+      if (resolve(run.workspace) !== resolve(task.workspace)) return { ok: false, error: { code: "VALIDATION_WORKSPACE_MISMATCH", message: "Validation evidence workspace must match the task workspace." } };
+      const knownCommands = run.steps.every((step) => task.validation_commands.includes(step.command));
+      if (!knownCommands) return { ok: false, error: { code: "VALIDATION_COMMAND_MISMATCH", message: "Validation run contains a command not declared by the task." } };
+      const records = run.steps.map((step) => ({
+        command: step.command,
+        exit_code: step.exit_code ?? 1,
+        summary: step.reason ?? `${step.status}: ${step.stdout ?? ""}`.trim(),
+        recorded_at: step.finished_at ?? run.finished_at,
+        agent: "HERMES" as const,
+        source: "EXECUTED" as const,
+        files_changed: [] as string[],
+      }));
+      const updated = { ...task, evidence: [...task.evidence, ...records] };
+      const check = validateTaskContract(updated);
+      if (!check.ok || !check.value) return { ok: false, error: { code: "INVALID_VALIDATION_EVIDENCE", message: check.errors.map((item) => item.message).join("; ") } };
+      registry.tasks[index] = check.value;
+      await this.writeRegistry(registry);
+      return { ok: true, value: check.value };
+    });
+  }
+
+  async appendEvidence(taskId: string, evidence: Omit<TaskContract["evidence"][number], "source">): Promise<RegistryResult<TaskContract>> {
     const candidate = {
       command: evidence.command,
       exit_code: evidence.exit_code,
       summary: evidence.summary,
       recorded_at: evidence.recorded_at,
       agent: evidence.agent,
+      source: "CALLER" as const,
       files_changed: evidence.files_changed,
     };
     const validation = validateTaskContract({
@@ -215,11 +251,12 @@ export class TaskRegistry {
     } catch {
       throw new Error("Task registry JSON is invalid; refusing to overwrite it.");
     }
-    if (typeof parsed !== "object" || parsed === null || !("schema_version" in parsed) || parsed.schema_version !== 1 || !Array.isArray(parsed.tasks)) {
+    if (typeof parsed !== "object" || parsed === null || !("schema_version" in parsed) || !("tasks" in parsed) || parsed.schema_version !== 1 || !Array.isArray(parsed.tasks)) {
       throw new Error("Task registry shape or schema_version is unsupported; refusing to overwrite it.");
     }
+    const parsedTasks = parsed.tasks as unknown[];
     const tasks: TaskContract[] = [];
-    for (const item of parsed.tasks) {
+    for (const item of parsedTasks) {
       const result = validateTaskContract(item);
       if (!result.ok || !result.value) throw new Error("Task registry contains an invalid task; refusing to overwrite it.");
       tasks.push(result.value);

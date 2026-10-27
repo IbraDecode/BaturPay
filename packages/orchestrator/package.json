@@ -9,6 +9,11 @@
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.mts",
+    "typecheck": "tsc --project tsconfig.json",
     "tasks": "node --experimental-strip-types src/cli.mts"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.3",
+    "typescript": "5.9.3"
   }
 }

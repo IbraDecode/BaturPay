@@ -83,8 +83,8 @@ export function runBoundedProcess(request: ProcessRequest): Promise<ProcessResul
       return;
     }
 
-    let stdout = Buffer.alloc(0);
-    let stderr = Buffer.alloc(0);
+    let stdout: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+    let stderr: Buffer<ArrayBufferLike> = Buffer.alloc(0);
     let truncated = false;
     let timedOut = false;
     let settled = false;

@@ -99,6 +99,6 @@ export async function runOpenCodeTask(request: OpenCodeTaskRequest): Promise<Pro
     args: ["run", "--format", "json", "--title", `BaturPay ${request.taskId}`, request.prompt],
     cwd: request.cwd,
     timeoutMs: request.timeoutMs,
-    maxOutputBytes: request.maxOutputBytes,
+    ...(request.maxOutputBytes !== undefined ? { maxOutputBytes: request.maxOutputBytes } : {}),
   });
 }
