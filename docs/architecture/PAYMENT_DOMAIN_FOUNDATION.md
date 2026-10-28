@@ -26,10 +26,11 @@ The `Payment` value contains:
 - IDs and required strings are non-empty; amount is a positive safe integer in minor units; currency is three uppercase letters; version is a positive integer.
 - Terminal statuses (`PAID`, `FAILED`, `EXPIRED`, `CANCELLED`) cannot transition.
 - Transitions are explicit in a static graph; arbitrary state changes are rejected.
-- Every allowed transition requires an evidence label. Terminal outcomes require a provider-status, verified-webhook, or reconciliation evidence label.
-- `UNKNOWN` is not equivalent to `FAILED`; it only resolves to a known state with a trusted provider-status or verified-reconciliation evidence label.
+- `transitionPayment` fails closed: no status change is authorized by a caller-supplied evidence label. A real verifier/capability boundary is not yet implemented.
+- `markPaymentUnknown` permits only a conservative transition from a nonterminal state to `UNKNOWN`, increments version, and cannot label a payment failed or paid.
+- `UNKNOWN` is not equivalent to `FAILED`; this package cannot resolve it from caller metadata.
 
-Important limitation: evidence labels are plain caller-supplied metadata in this pure function; they are not proof of signature verification, provider authenticity, persistence, or authorization. A future domain/application service must validate and persist evidence before using it. Adapters must not directly mutate authoritative state.
+Evidence labels are plain metadata, not proof of signature verification, provider authenticity, persistence, or authorization. Adapters cannot mutate `Payment`. Provider-final status transitions remain blocked until a tested evidence verifier and authorized application boundary exist.
 
 ## Proposed transition graph (initial, unverified)
 

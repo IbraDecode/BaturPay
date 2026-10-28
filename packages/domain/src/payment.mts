@@ -38,7 +38,7 @@ export type PaymentCreationResult =
   | { ok: false; error: PaymentTransitionError };
 
 export interface PaymentTransitionError {
-  code: "INVALID_PAYMENT" | "INVALID_EVIDENCE" | "TERMINAL_STATE" | "MISSING_EVIDENCE" | "UNKNOWN_REQUIRES_EVIDENCE" | "TRANSITION_NOT_ALLOWED" | "VERSION_EXHAUSTED";
+  code: "INVALID_PAYMENT" | "INVALID_EVIDENCE" | "TERMINAL_STATE" | "MISSING_EVIDENCE" | "UNKNOWN_REQUIRES_EVIDENCE" | "TRANSITION_NOT_ALLOWED" | "VERSION_EXHAUSTED" | "UNVERIFIED_EVIDENCE";
   message: string;
 }
 
@@ -94,6 +94,22 @@ export function createPayment(input: Omit<Payment, "status" | "version">): Payme
   return { ok: true, payment };
 }
 
+export function markPaymentUnknown(current: Payment): PaymentTransitionResult {
+  if (!validatePayment(current)) {
+    return { ok: false, error: { code: "INVALID_PAYMENT", message: "Payment data is invalid." } };
+  }
+  if (TERMINAL_STATUSES.has(current.status)) {
+    return { ok: false, error: { code: "TERMINAL_STATE", message: "Terminal payment state cannot be marked UNKNOWN." } };
+  }
+  if (current.status === "UNKNOWN") {
+    return { ok: false, error: { code: "TRANSITION_NOT_ALLOWED", message: "Payment is already UNKNOWN." } };
+  }
+  if (current.version === Number.MAX_SAFE_INTEGER) {
+    return { ok: false, error: { code: "VERSION_EXHAUSTED", message: "Payment version cannot be incremented safely." } };
+  }
+  return { ok: true, payment: { ...current, status: "UNKNOWN", version: current.version + 1 } };
+}
+
 export function transitionPayment(
   current: Payment,
   next: PaymentStatus,
@@ -118,21 +134,17 @@ export function transitionPayment(
   if (TERMINAL_STATUSES.has(current.status)) {
     return { ok: false, error: { code: "TERMINAL_STATE", message: `Terminal payment state ${current.status} cannot transition.` } };
   }
-  if (current.status === "UNKNOWN" && !(context.evidence === "TRUSTED_PROVIDER_STATUS" || context.evidence === "VERIFIED_RECONCILIATION")) {
-    return { ok: false, error: { code: "UNKNOWN_REQUIRES_EVIDENCE", message: "UNKNOWN must be resolved from trusted provider status or verified reconciliation evidence." } };
-  }
-  if (!context.evidence) {
-    return { ok: false, error: { code: "MISSING_EVIDENCE", message: "A validated transition evidence type is required." } };
-  }
-  const verifiedOutcomeEvidence: readonly PaymentTransitionEvidence[] = ["TRUSTED_PROVIDER_STATUS", "VERIFIED_WEBHOOK", "VERIFIED_RECONCILIATION"];
-  if (["PAID", "FAILED", "EXPIRED", "CANCELLED"].includes(next) && !verifiedOutcomeEvidence.includes(context.evidence)) {
-    return { ok: false, error: { code: "MISSING_EVIDENCE", message: "A terminal payment outcome requires verified provider or reconciliation evidence." } };
+  if (current.version === Number.MAX_SAFE_INTEGER) {
+    return { ok: false, error: { code: "VERSION_EXHAUSTED", message: "Payment version cannot be incremented safely." } };
   }
   if (!ALLOWED_TRANSITIONS[current.status].includes(next)) {
     return { ok: false, error: { code: "TRANSITION_NOT_ALLOWED", message: `Transition ${current.status} -> ${next} is not allowed.` } };
   }
-  if (current.version === Number.MAX_SAFE_INTEGER) {
-    return { ok: false, error: { code: "VERSION_EXHAUSTED", message: "Payment version cannot be incremented safely." } };
+  if (current.status === "UNKNOWN") {
+    return { ok: false, error: { code: "UNKNOWN_REQUIRES_EVIDENCE", message: "UNKNOWN requires authoritative evidence; caller-supplied labels cannot resolve it." } };
   }
-  return { ok: true, payment: { ...current, status: next, version: current.version + 1 } };
+  if (!context.evidence) {
+    return { ok: false, error: { code: "MISSING_EVIDENCE", message: "A validated transition evidence type is required." } };
+  }
+  return { ok: false, error: { code: "UNVERIFIED_EVIDENCE", message: "No evidence-verification authority exists in this package; caller-supplied labels cannot authorize payment state changes." } };
 }

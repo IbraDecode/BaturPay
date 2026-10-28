@@ -4,7 +4,7 @@ BaturPay adalah proyek infrastruktur orkestrasi pembayaran yang dibangun dari no
 
 ## Status
 
-Fondasi dokumentasi, prototipe orchestrator lokal, dan pure payment state-transition model tersedia. Task contract/registry, fixed local test/typecheck executor, dan payment transition logic memiliki tests; strict typecheck dijalankan terpisah. Belum ada OpenCode task yang dijalankan, payment API, provider adapter nyata, database schema, webhook verifier, ledger, dashboard, worker, atau layanan produksi. Belum ada provider yang dinyatakan didukung.
+Fondasi dokumentasi, prototipe orchestrator lokal, payment domain, PostgreSQL store/migration, serta atomic idempotency code tersedia. Strict typecheck dan unit tests lulus secara lokal; PostgreSQL integration suite belum dijalankan karena server PostgreSQL tidak tersedia di lingkungan ini. Belum ada payment API, provider integration, webhook verifier, ledger, dashboard, worker, atau production service. Belum ada provider yang dinyatakan didukung.
 
 ## Visi dan ruang lingkup awal
 

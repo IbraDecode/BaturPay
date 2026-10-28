@@ -1,6 +1,6 @@
 # Idempotency Contract
 
-Status: domain contract implemented and unit-tested; persistence, atomic claims, execution and crash recovery are NOT implemented. Not production-ready.
+Status: domain contract and PostgreSQL implementation are present; real PostgreSQL migration, concurrency, crash recovery and replay tests are NOT RUN because no PostgreSQL server is available. Not production-ready.
 
 ## Scope
 
@@ -23,7 +23,7 @@ An idempotency request is scoped by `(merchant_id, environment, operation, provi
 
 ## Retention and concurrency
 
-Retention seconds are passed as configuration when forming a claim; this module selects no duration. In production, enforce uniqueness at the persistent database boundary with an atomic insert/unique constraint and return the existing row on conflict. A process-local map, preflight `SELECT`, advisory assumption or Redis-only state does not prove atomicity. Cross-system provider execution cannot share a PostgreSQL transaction; claim, provider request and finalization require separate guarded steps and explicit recovery for ambiguous outcomes. `AtomicIdempotencyStore` is only a TypeScript interface specifying the expected boundary: `claim` returns `CLAIMED` only for the caller that atomically inserted the record, and finalization/mark-unknown are explicit state writes. No storage implementation or database-backed concurrency test exists.
+`PostgresPaymentStore` uses a provisional 365-day default retention when trusted application config omits a duration; callers may override it through server-side configuration. This is a conservative engineering default, not an approved business/legal policy. Records are not automatically deleted, `UNKNOWN` is never reclaimed, and expiry returns `RETENTION_EXPIRED` rather than allowing key reuse. Owner approval for production retention and data-minimization policy remains OPEN. In production, enforce uniqueness at the persistent database boundary with an atomic insert/unique constraint and return the existing row on conflict. A process-local map, preflight `SELECT`, advisory assumption or Redis-only state does not prove atomicity. Cross-system provider execution cannot share a PostgreSQL transaction; claim, provider request and finalization require separate guarded steps and explicit recovery for ambiguous outcomes. `AtomicIdempotencyStore` remains a TypeScript port contract. `PostgresPaymentStore.createPayment` implements atomic claim+payment insertion as one PostgreSQL transaction; `markUnknown` records payment state and recovery code together under row locks and expected-version checks; `finalize` stores a bounded response only while record is `IN_PROGRESS`. These methods are code-reviewed but not executed against a real database here; no atomicity or concurrency behavior is verified until the guarded integration suite passes.
 
 ## Crash and recovery
 
@@ -31,4 +31,4 @@ A crash after claim but before dispatch leaves `IN_PROGRESS`; a crash after prov
 
 ## No financial behavior
 
-This contract stores no payment, does not call providers, issue refunds, hold funds, write a ledger or settle transactions. Provider key semantics and safe retry/recovery requirements remain OPEN until a provider is selected and validated. See `PERSISTENCE_DESIGN.md` for the proposed PostgreSQL atomic-claim protocol (design only).
+This contract stores no payment, does not call providers, issue refunds, hold funds, write a ledger or settle transactions. Provider key semantics and safe retry/recovery requirements remain OPEN until a provider is selected and validated. See `PERSISTENCE_DESIGN.md` for schema and atomic-claim notes; implementation exists but database behavior remains NOT RUN.

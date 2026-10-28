@@ -1,11 +1,11 @@
 # Proposed PostgreSQL Persistence Design
 
-Status: design only. No PostgreSQL client/runtime is present in the observed environment (`psql`, `pg_isready`, Docker and Podman were absent at inspection); no schema migration or database integration test has been run. This is not `PERSISTENCE_IMPLEMENTED`.
+Status: implementation added in `packages/orchestrator/src/postgres-store.mts` with migration `packages/domain/migrations/001_initial.sql`; no reachable PostgreSQL server is present, so migration/integration behavior is NOT RUN and not verified. `pg` is a pinned runtime dependency. Design statements below describe intended behavior; tests must run against local isolated `baturpay_test` before claiming correctness.
 
 ## Assumptions and decisions
 
 - PostgreSQL is the proposed durable source of truth for payments, operation claims, evidence references and audit events.
-- Require a currently supported PostgreSQL version. The scope below uses ordinary unique indexes and a UUID sentinel for global provider-account scope; if the schema instead uses `NULLS NOT DISTINCT`, that requires PostgreSQL 15+ and must be an explicit deployment decision.
+- Require a currently supported PostgreSQL version. Implemented migration uses `storage_key TEXT` with an exact 64-character lowercase-hex constraint—SHA-256 over the canonical full scope—as the unique serialization key, avoiding nullable-scope uniqueness semantics. Collision probability is computationally negligible but remains a documented tradeoff.
 - Sandbox and production records are separated by an explicit `environment` column and included in all uniqueness and lookup scopes. Production/sandbox database separation is still an open deployment/security choice.
 - No product-specific provider, custody, funds flow, settlement, ledger, pricing or retention duration is assumed.
 
@@ -30,10 +30,11 @@ Status: design only. No PostgreSQL client/runtime is present in the observed env
    - Retain attempts; never overwrite an ambiguous outcome with a guessed failure.
 
 5. `idempotency_records`
-   - `idempotency_record_id UUID PRIMARY KEY`, merchant, environment, operation kind, optional provider-account scope, opaque `storage_key CHAR(64)` digest of the full canonical scope (raw key is not stored), SHA-256 canonical payload fingerprint, state `IN_PROGRESS|SUCCEEDED|FAILED_FINAL|UNKNOWN`, cached sanitized response, expiry and timestamps.
-   - Unique `storage_key CHAR(64)` (the deterministic SHA-256 digest of the canonical merchant/environment/operation/provider-account/key tuple) as the database claim serialization point. Enforce a format check and store the raw idempotency key nowhere. Cryptographic collisions are considered computationally negligible but this remains a design tradeoff; a normalized composite unique scope is an alternative. If choosing a composite unique scope, represent an absent provider account with a reserved UUID sentinel and forbid that sentinel for real account IDs, or explicitly require PostgreSQL 15+ and use `NULLS NOT DISTINCT`.
+   - `storage_key TEXT PRIMARY KEY` constrained to exactly 64 lowercase hex characters; value is SHA-256 over canonical merchant/environment/operation/provider-account/key scope. The raw key is not stored. Digest collision risk is computationally negligible but remains a design tradeoff.
+   - Also store merchant, environment, operation, optional provider account, SHA-256 payload fingerprint, payment ID, `IN_PROGRESS|SUCCEEDED|FAILED_FINAL|UNKNOWN` state, sanitized cached response, expiry and timestamps.
+   - The unique `storage_key` is the database claim serialization point. Do not perform an application-only check-then-insert.
    - FK to merchant and, where present, a provider account from the same merchant/environment. `FAILED_FINAL` means known no further side effect is pending; uncertainty must be `UNKNOWN`.
-   - Retention duration is deployment/product configuration, not a hard-coded policy. Expired keys require an explicit reuse policy; an expired `UNKNOWN` record must remain recoverable and cannot be blindly reclaimed.
+   - `PostgresPaymentStore` applies a provisional 365-day default when trusted application config omits retention; explicit server-side override remains possible. No automatic cleanup occurs. Final records past expiry continue reserving scope and return policy-required; unresolved `UNKNOWN` never expires into reclaim. Production duration, deletion/privacy balance and key-reuse policy remain OPEN.
 
 6. `payment_evidence`
    - Append-only references to verified provider response, authenticated webhook or reconciliation evidence; include source, provider/account, received/verified timestamps and opaque evidence location/digest. Avoid storing full sensitive provider payloads by default.
@@ -78,6 +79,12 @@ The exact database protocol needs integration tests with concurrent real Postgre
 - Map unique violations by named constraint to domain outcomes; distinguish connection/serialization/deadlock/constraint errors; do not return raw SQL or provider details to callers. Preserve safe correlation IDs and redact secrets.
 - Production migration, backups, retention/destruction and RLS policies require operator approval and environment-specific runbooks.
 
+## Implemented persistence boundary (static review; not database-verified)
+
+The version-1 migration also installs database triggers: payment insert must start `CREATED` at version 1; normal payment updates cannot alter immutable request fields or jump to provider/terminal statuses; only an in-progress operation may mark its payment `UNKNOWN` with an exact version increment. The paired idempotency update then requires that payment to be `UNKNOWN` in the same transaction. Final idempotency rows are immutable; `UNKNOWN` cannot be silently reset. Payment and idempotency rows cannot be deleted through `DELETE`, and evidence rows cannot be updated/deleted. This deliberately blocks all success/failure transitions because no evidence-verification authority exists yet.
+
+The guarded integration suite resets only local database named `baturpay_test`. PostgreSQL `TRUNCATE` bypasses row delete triggers; test-reset method checks actual DB name and requires explicit opt-in. Production DB role ownership/grants still need operator hardening so app roles cannot alter/drop triggers or truncate tables.
+
 ## Explicitly absent
 
-No database schema, SQL migration, database client, persistence adapter, transaction executor, RLS policy, migration runner, backup or recovery mechanism is implemented. The domain `AtomicIdempotencyStore` is only an interface contract. No PostgreSQL or provider integration was exercised.
+Implemented migration currently creates `merchants`, `provider_accounts`, `idempotency_records`, `payments`, and `payment_evidence`; the design-only `payment_attempts` and `audit_events` tables are not implemented. `PostgresPaymentStore` uses `pg`, a checksum-tracked version-1 migration, explicit transactions, a unique hashed scope key, conditional updates and parameterized SQL. `AtomicIdempotencyStore` remains an abstract domain port; no database-backed conformance implementation or real concurrency behavior is verified until local PostgreSQL integration tests pass. No RLS policy, backup/restore or deployed recovery worker exists.

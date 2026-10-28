@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PAYMENT_STATUSES, createPayment, transitionPayment, type Payment } from "../src/payment.mts";
+import { PAYMENT_STATUSES, createPayment, markPaymentUnknown, transitionPayment, type Payment } from "../src/payment.mts";
 
 function expectRejected(result: ReturnType<typeof transitionPayment>, code: string): void {
   assert.equal(result.ok, false);
@@ -33,21 +33,32 @@ test("payment factory always starts at CREATED version 1", () => {
   assert.equal(invalid.ok, false);
 });
 
-test("allows explicitly modeled payment transitions", () => {
-  assert.equal(transitionPayment(payment("CREATED"), "PENDING", { evidence: "REQUEST_ACCEPTED" }).ok, true);
-  assert.equal(transitionPayment(payment("PENDING"), "REQUIRES_ACTION", { evidence: "TRUSTED_PROVIDER_STATUS" }).ok, true);
-  assert.equal(transitionPayment(payment("REQUIRES_ACTION"), "PROCESSING", { evidence: "TRUSTED_PROVIDER_STATUS" }).ok, true);
-  assert.equal(transitionPayment(payment("PROCESSING"), "PAID", { evidence: "VERIFIED_WEBHOOK" }).ok, true);
+test("blocks state changes until an evidence verifier supplies authority", () => {
+  expectRejected(transitionPayment(payment("CREATED"), "PENDING", { evidence: "REQUEST_ACCEPTED" }), "UNVERIFIED_EVIDENCE");
+  expectRejected(transitionPayment(payment("PENDING"), "REQUIRES_ACTION", { evidence: "TRUSTED_PROVIDER_STATUS" }), "UNVERIFIED_EVIDENCE");
+  expectRejected(transitionPayment(payment("REQUIRES_ACTION"), "PROCESSING", { evidence: "TRUSTED_PROVIDER_STATUS" }), "UNVERIFIED_EVIDENCE");
+  expectRejected(transitionPayment(payment("PROCESSING"), "PAID", { evidence: "VERIFIED_WEBHOOK" }), "UNVERIFIED_EVIDENCE");
 });
 
-test("allows provider-reported return to PENDING from action or processing as a proposed reconciliation case", () => {
-  assert.equal(transitionPayment(payment("REQUIRES_ACTION"), "PENDING", { evidence: "TRUSTED_PROVIDER_STATUS" }).ok, true);
-  assert.equal(transitionPayment(payment("PROCESSING"), "PENDING", { evidence: "TRUSTED_PROVIDER_STATUS" }).ok, true);
+test("caller-supplied evidence label can never authorize a terminal payment outcome", () => {
+  for (const evidence of ["TRUSTED_PROVIDER_STATUS", "VERIFIED_WEBHOOK", "VERIFIED_RECONCILIATION"] as const) {
+    expectRejected(transitionPayment(payment("PENDING"), "PAID", { evidence }), "UNVERIFIED_EVIDENCE");
+    expectRejected(transitionPayment(payment("PENDING"), "FAILED", { evidence }), "UNVERIFIED_EVIDENCE");
+  }
+});
+test("UNKNOWN cannot be resolved by a caller-supplied evidence label", () => {
+  expectRejected(transitionPayment(payment("UNKNOWN"), "PENDING", { evidence: "TRUSTED_PROVIDER_STATUS" }), "UNKNOWN_REQUIRES_EVIDENCE");
+  expectRejected(transitionPayment(payment("UNKNOWN"), "PAID", { evidence: "VERIFIED_RECONCILIATION" }), "UNKNOWN_REQUIRES_EVIDENCE");
+});
+
+test("provider-reported return to PENDING remains blocked until evidence can be verified", () => {
+  expectRejected(transitionPayment(payment("REQUIRES_ACTION"), "PENDING", { evidence: "TRUSTED_PROVIDER_STATUS" }), "UNVERIFIED_EVIDENCE");
+  expectRejected(transitionPayment(payment("PROCESSING"), "PENDING", { evidence: "TRUSTED_PROVIDER_STATUS" }), "UNVERIFIED_EVIDENCE");
 });
 
 test("requires transition evidence and trusted evidence for terminal outcomes", () => {
   expectRejected(transitionPayment(payment("CREATED"), "PENDING"), "MISSING_EVIDENCE");
-  expectRejected(transitionPayment(payment("PENDING"), "PAID", { evidence: "REQUEST_ACCEPTED" }), "MISSING_EVIDENCE");
+  expectRejected(transitionPayment(payment("PENDING"), "PAID", { evidence: "REQUEST_ACCEPTED" }), "UNVERIFIED_EVIDENCE");
 });
 
 test("rejects forged evidence labels and malformed context at runtime", () => {
@@ -56,7 +67,7 @@ test("rejects forged evidence labels and malformed context at runtime", () => {
 });
 
 test("rejects invalid version values before transition", () => {
-  expectRejected(transitionPayment({ ...payment("PENDING"), version: Number.MAX_SAFE_INTEGER }, "PAID", { evidence: "TRUSTED_PROVIDER_STATUS" }), "VERSION_EXHAUSTED");
+  expectRejected(transitionPayment({ ...payment("PENDING"), version: Number.MAX_SAFE_INTEGER }, "PENDING", { evidence: "REQUEST_ACCEPTED" }), "VERSION_EXHAUSTED");
 });
 
 test("rejects illegal transitions and does not change the input payment", () => {
@@ -73,17 +84,26 @@ test("terminal statuses cannot transition", () => {
   }
 });
 
+test("ambiguity marker moves nonterminal payment to UNKNOWN without claiming final outcome", () => {
+  const current = payment("PROCESSING");
+  const result = markPaymentUnknown(current);
+  assert.equal(result.ok, true);
+  if (!result.ok) throw new Error("Expected ambiguity marker to succeed.");
+  assert.equal(result.payment.status, "UNKNOWN");
+  assert.equal(result.payment.version, current.version + 1);
+  assert.equal(current.status, "PROCESSING");
+  expectRejected(markPaymentUnknown(payment("PAID")), "TERMINAL_STATE");
+});
+
 test("UNKNOWN remains ambiguous and cannot be retried or downgraded automatically", () => {
   const result = transitionPayment(payment("UNKNOWN"), "FAILED");
   expectRejected(result, "UNKNOWN_REQUIRES_EVIDENCE");
 });
 
-test("UNKNOWN can only resolve using explicit trusted evidence", () => {
-  const result = transitionPayment(payment("UNKNOWN"), "PAID", { evidence: "TRUSTED_PROVIDER_STATUS" });
-  assert.equal(result.ok, true);
-  if (!result.ok) throw new Error("Expected trusted evidence to resolve UNKNOWN.");
-  assert.equal(result.payment.status, "PAID");
-  expectRejected(transitionPayment(payment("UNKNOWN"), "PAID"), "UNKNOWN_REQUIRES_EVIDENCE");
+test("UNKNOWN cannot resolve from caller-supplied trusted labels", () => {
+  expectRejected(transitionPayment(payment("UNKNOWN"), "PAID", { evidence: "TRUSTED_PROVIDER_STATUS" }), "UNKNOWN_REQUIRES_EVIDENCE");
+  expectRejected(transitionPayment(payment("UNKNOWN"), "PENDING", { evidence: "VERIFIED_RECONCILIATION" }), "UNKNOWN_REQUIRES_EVIDENCE");
+  expectRejected(transitionPayment(payment("UNKNOWN"), "FAILED"), "UNKNOWN_REQUIRES_EVIDENCE");
 });
 
 test("payment model rejects invalid immutable monetary identifiers", () => {

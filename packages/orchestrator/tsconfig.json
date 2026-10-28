@@ -12,5 +12,5 @@
     "exactOptionalPropertyTypes": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.mts", "test/**/*.mts", "../domain/src/**/*.mts", "../domain/test/**/*.mts"]
+  "include": ["src/**/*.mts", "test/**/*.mts", "integration/**/*.mts", "../domain/src/**/*.mts", "../domain/test/**/*.mts"]
 }
