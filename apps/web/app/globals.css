@@ -1,0 +1,140 @@
+:root {
+  --bg: #0b1622;
+  --panel: #102b48;
+  --panel-2: #0f2136;
+  --text: #e8f1fa;
+  --muted: #8fb0cc;
+  --accent: #55b9ff;
+  --primary: #1686d9;
+  --ok: #16a36a;
+  --warn: #e5a000;
+  --danger: #d94b4b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.card {
+  background: var(--panel-2);
+  border: 1px solid rgba(85, 185, 255, 0.15);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+input,
+select {
+  background: #08111b;
+  color: var(--text);
+  border: 1px solid rgba(143, 176, 204, 0.3);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  border: 1px solid rgba(85, 185, 255, 0.4);
+  color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(143, 176, 204, 0.15);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge.ok {
+  background: rgba(22, 163, 106, 0.18);
+  color: #4fd39c;
+}
+
+.badge.warn {
+  background: rgba(229, 160, 0, 0.18);
+  color: #f0c04c;
+}
+
+.badge.danger {
+  background: rgba(217, 75, 75, 0.18);
+  color: #ef8080;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+h1 {
+  font-size: 26px;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 0 0 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+code {
+  background: rgba(85, 185, 255, 0.1);
+  padding: 1px 6px;
+  border-radius: 6px;
+}

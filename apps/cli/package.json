@@ -1,0 +1,15 @@
+{
+  "name": "@baturpay/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "baturpay": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@baturpay/contracts": "*",
+    "@baturpay/core": "*",
+    "commander": "^12.1.0"
+  }
+}

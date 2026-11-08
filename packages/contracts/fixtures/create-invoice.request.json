@@ -1,0 +1,8 @@
+{
+  "externalId": "INV-2026-0001",
+  "amountMinor": 50000,
+  "currency": "IDR",
+  "description": "Sandbox test invoice",
+  "scenario": "duplicate_webhook",
+  "metadata": { "orderRef": "demo-1" }
+}

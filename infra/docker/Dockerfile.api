@@ -1,0 +1,25 @@
+# ==========================================================================
+# BaturPay API image (sandbox)
+# Powered by Ibra X 3.1 Sovereign Execution Engine
+# Author: Ibra Ramdan <ibradecode@gmail.com>
+# ==========================================================================
+FROM node:22-slim AS base
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Install dependencies with the workspace lockfile.
+COPY package.json package-lock.json ./
+COPY packages ./packages
+COPY apps/api ./apps/api
+COPY apps/cli ./apps/cli
+COPY apps/mcp ./apps/mcp
+RUN npm ci --no-audit --no-fund
+
+# Drop privileges.
+RUN useradd --system --uid 10001 baturpay && chown -R baturpay:baturpay /app
+USER baturpay
+
+EXPOSE 4000
+
+# Apply migrations, then start. Set DATABASE_URL=memory:// to run without Postgres.
+CMD ["sh", "-c", "npm run db:migrate && npm run start:api"]

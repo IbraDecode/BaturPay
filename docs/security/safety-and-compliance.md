@@ -4,6 +4,8 @@
 
 BaturPay tahap ini adalah software developer sandbox sintetis. Tidak melakukan acquiring, memindahkan/menahan dana, menerbitkan QRIS yang dapat dibayar, memproses transaksi nyata, atau menyediakan settlement. Label UI/API/docs harus menyebut simulasi secara eksplisit. Dokumen ini bukan nasihat hukum atau konfirmasi status perizinan.
 
+**Kontrol teknis:** live gate di `packages/core/src/mode.ts`. Operasi bertanda uang riil memanggil `assertLiveAllowed()` dan gagal-tertutup (HTTP 451) kecuali `BATURPAY_MODE=production` **dan** `LIVE_PAYMENTS_ENABLED=true` **dan** `GO_LIVE_ATTESTATION` terisi. Tidak ada prompt atau tool agent yang dapat membukanya.
+
 ## Kontrol agent
 
 - Agent tidak menerima secret produksi atau data konsumen nyata.

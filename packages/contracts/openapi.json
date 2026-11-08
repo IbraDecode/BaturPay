@@ -1,0 +1,324 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BaturPay Sandbox API",
+    "version": "2026-11-09",
+    "description": "Deterministic payment sandbox, webhook lab, and integration contract. All operations are simulated; no real funds move. See /docs/security/safety-and-compliance.md."
+  },
+  "servers": [{ "url": "http://localhost:4000", "description": "Local sandbox" }],
+  "tags": [
+    { "name": "health" },
+    { "name": "invoices" },
+    { "name": "runs" },
+    { "name": "webhooks" },
+    { "name": "contracts" },
+    { "name": "admin" }
+  ],
+  "security": [{ "apiKey": [] }],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["health"],
+        "security": [],
+        "summary": "Liveness and mode probe",
+        "responses": {
+          "200": {
+            "description": "Service status",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } }
+          }
+        }
+      }
+    },
+    "/v1/scenarios": {
+      "get": {
+        "tags": ["runs"],
+        "summary": "List available simulation scenarios",
+        "responses": {
+          "200": {
+            "description": "Scenario catalog",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Scenario" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/invoices": {
+      "get": {
+        "tags": ["invoices"],
+        "summary": "List invoices for the authenticated workspace",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Invoice" } },
+                    "nextCursor": { "type": ["string", "null"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["invoices"],
+        "summary": "Create a sandbox invoice",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "minLength": 8, "maxLength": 255 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateInvoiceRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Invoice" } } }
+          },
+          "409": { "description": "Idempotency conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+    "/v1/invoices/{id}": {
+      "get": {
+        "tags": ["invoices"],
+        "summary": "Retrieve an invoice with its canonical status",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Invoice", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Invoice" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        }
+      }
+    },
+    "/v1/invoices/{id}/events": {
+      "get": {
+        "tags": ["invoices"],
+        "summary": "List the append-only event stream for an invoice",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": {
+            "description": "Events",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Event" } } } }
+          }
+        }
+      }
+    },
+    "/v1/runs": {
+      "post": {
+        "tags": ["runs"],
+        "summary": "Run a deterministic scenario against an invoice",
+        "parameters": [
+          { "name": "Idempotency-Key", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RunScenarioRequest" } } }
+        },
+        "responses": {
+          "201": { "description": "Run result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ScenarioRun" } } } }
+        }
+      }
+    },
+    "/v1/runs/{id}": {
+      "get": {
+        "tags": ["runs"],
+        "summary": "Retrieve a previously executed run",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Run", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ScenarioRun" } } } }
+        }
+      }
+    },
+    "/v1/webhook-endpoints": {
+      "get": {
+        "tags": ["webhooks"],
+        "summary": "List webhook endpoints",
+        "responses": { "200": { "description": "Endpoints" } }
+      },
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "Register a webhook endpoint (SSRF-guarded)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateWebhookEndpointRequest" } } }
+        },
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/v1/webhook-deliveries": {
+      "get": {
+        "tags": ["webhooks"],
+        "summary": "List recent webhook delivery attempts",
+        "responses": { "200": { "description": "Deliveries" } }
+      }
+    },
+    "/v1/webhook-deliveries/{id}/retry": {
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "Manually replay a given delivery's event",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "202": { "description": "Replay scheduled" } }
+      }
+    },
+    "/v1/contracts": {
+      "get": {
+        "tags": ["contracts"],
+        "summary": "Return the active contract version and this OpenAPI document pointer",
+        "responses": { "200": { "description": "Contract metadata" } }
+      }
+    },
+    "/v1/keys": {
+      "post": {
+        "tags": ["admin"],
+        "summary": "Mint an additional sandbox API key for the workspace",
+        "responses": { "201": { "description": "Key created (secret shown once)" } }
+      }
+    },
+    "/v1/audit": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List audit events for the workspace",
+        "responses": { "200": { "description": "Audit events" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKey": { "type": "http", "scheme": "bearer", "description": "Sandbox API key (sk_sandbox_...)" }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "required": ["status", "mode", "liveGateOpen", "contractVersion", "uptimeSeconds"],
+        "properties": {
+          "status": { "const": "ok" },
+          "mode": { "enum": ["sandbox", "production"] },
+          "liveGateOpen": { "type": "boolean" },
+          "contractVersion": { "type": "string" },
+          "uptimeSeconds": { "type": "number" }
+        }
+      },
+      "Money": {
+        "type": "object",
+        "required": ["amountMinor", "currency"],
+        "properties": {
+          "amountMinor": { "type": "integer" },
+          "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+        }
+      },
+      "CreateInvoiceRequest": {
+        "type": "object",
+        "required": ["externalId", "amountMinor"],
+        "properties": {
+          "externalId": { "type": "string", "maxLength": 128 },
+          "amountMinor": { "type": "integer", "minimum": 1 },
+          "currency": { "type": "string", "default": "IDR" },
+          "description": { "type": "string", "maxLength": 500 },
+          "scenario": { "type": "string" },
+          "metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "Invoice": {
+        "type": "object",
+        "required": ["id", "workspaceId", "externalId", "amountMinor", "currency", "status", "environment", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "workspaceId": { "type": "string" },
+          "externalId": { "type": "string" },
+          "amountMinor": { "type": "integer" },
+          "currency": { "type": "string" },
+          "status": { "enum": ["CREATED", "PENDING", "SUCCEEDED", "FAILED", "EXPIRED", "REFUNDED"] },
+          "environment": { "const": "sandbox" },
+          "description": { "type": ["string", "null"] },
+          "scenario": { "type": ["string", "null"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "required": ["eventId", "type", "workspaceId", "invoiceId", "sequence", "occurredAt", "data"],
+        "properties": {
+          "eventId": { "type": "string" },
+          "type": { "enum": ["invoice.created", "invoice.pending", "payment.succeeded", "payment.failed", "invoice.expired", "payment.refunded"] },
+          "workspaceId": { "type": "string" },
+          "invoiceId": { "type": "string" },
+          "sequence": { "type": "integer" },
+          "occurredAt": { "type": "string", "format": "date-time" },
+          "data": { "type": "object" }
+        }
+      },
+      "RunScenarioRequest": {
+        "type": "object",
+        "required": ["invoiceId", "scenario"],
+        "properties": {
+          "invoiceId": { "type": "string" },
+          "scenario": { "type": "string" },
+          "seed": { "type": "string" }
+        }
+      },
+      "ScenarioRun": {
+        "type": "object",
+        "required": ["runId", "scenario", "seed", "invoiceId", "finalStatus", "expectedSettleMinor", "events", "deliveries", "createdAt"],
+        "properties": {
+          "runId": { "type": "string" },
+          "scenario": { "type": "string" },
+          "seed": { "type": "string" },
+          "invoiceId": { "type": "string" },
+          "finalStatus": { "type": "string" },
+          "expectedSettleMinor": { "type": "integer" },
+          "events": { "type": "array", "items": { "$ref": "#/components/schemas/Event" } },
+          "deliveries": { "type": "array", "items": { "type": "object" } },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Scenario": {
+        "type": "object",
+        "required": ["name", "title", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "CreateWebhookEndpointRequest": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "description": { "type": "string" }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "type": "object" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

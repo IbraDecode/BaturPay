@@ -1,0 +1,91 @@
+# ==========================================================================
+# BaturPay CI
+# Powered by Ibra X 3.1 Sovereign Execution Engine
+# Author: Ibra Ramdan <ibradecode@gmail.com>
+# ==========================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Typecheck & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit & integration tests
+        run: npm test
+
+      - name: Validate compose file
+        run: docker compose -f infra/docker/docker-compose.yml config >/dev/null
+
+  postgres-integration:
+    name: Postgres integration
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: baturpay
+          POSTGRES_PASSWORD: baturpay
+          POSTGRES_DB: baturpay
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U baturpay -d baturpay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgres://baturpay:baturpay@localhost:5432/baturpay
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Apply migrations
+        run: npm run db:migrate
+      - name: Store smoke test against Postgres
+        run: |
+          node --import tsx -e "
+          import('./apps/api/src/store/index.ts').then(async (m) => {
+            const { loadConfig } = await import('@baturpay/config');
+            const config = loadConfig();
+            const store = await m.createStore(config, 'postgres');
+            const ws = await store.createWorkspace({ id: 'ws_smoke_0000000000000000000000', name: 'Smoke' });
+            if (!ws.id) throw new Error('workspace not persisted');
+            if (!(await store.ping())) throw new Error('ping failed');
+            await store.close();
+            console.log('postgres store smoke test ok');
+          });
+          "

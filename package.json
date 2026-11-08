@@ -1,0 +1,44 @@
+{
+  "name": "baturpay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BaturPay — payment developer workbench: deterministic sandbox, webhook lab, and agent-ready integration tools.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:api": "tsx watch apps/api/src/main.ts",
+    "dev:web": "npm --workspace @baturpay/web run dev",
+    "start:api": "tsx apps/api/src/main.ts",
+    "cli": "tsx apps/cli/src/index.ts",
+    "mcp": "tsx apps/mcp/src/index.ts",
+    "db:migrate": "tsx apps/api/src/db/migrate.ts",
+    "db:seed": "tsx apps/api/src/db/seed.ts",
+    "docker:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infra/docker/docker-compose.yml down -v"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@fastify/rate-limit": "^10.2.1",
+    "commander": "^12.1.0",
+    "fastify": "^5.1.0",
+    "pg": "^8.13.1",
+    "zod": "^3.24.1"
+  }
+}

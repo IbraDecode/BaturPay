@@ -1,0 +1,56 @@
+{
+  "runId": "run_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+  "scenario": "duplicate_webhook",
+  "seed": "ws_demo:inv_demo:duplicate_webhook",
+  "invoiceId": "inv_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+  "finalStatus": "SUCCEEDED",
+  "expectedSettleMinor": 50000,
+  "createdAt": "2026-11-09T00:00:00.000Z",
+  "events": [
+    {
+      "eventId": "evt_01JAV0Y8AAAAAAAAAAAAAAAAAA",
+      "type": "invoice.created",
+      "workspaceId": "ws_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+      "invoiceId": "inv_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+      "sequence": 1,
+      "occurredAt": "2026-11-09T00:00:00.000Z",
+      "data": { "scenario": "duplicate_webhook" }
+    },
+    {
+      "eventId": "evt_01JAV0Y8BBBBBBBBBBBBBBBBBB",
+      "type": "invoice.pending",
+      "workspaceId": "ws_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+      "invoiceId": "inv_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+      "sequence": 2,
+      "occurredAt": "2026-11-09T00:00:01.000Z",
+      "data": { "scenario": "duplicate_webhook" }
+    },
+    {
+      "eventId": "evt_01JAV0Y8CCCCCCCCCCCCCCCCCC",
+      "type": "payment.succeeded",
+      "workspaceId": "ws_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+      "invoiceId": "inv_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+      "sequence": 3,
+      "occurredAt": "2026-11-09T00:00:05.000Z",
+      "data": { "scenario": "duplicate_webhook" }
+    }
+  ],
+  "deliveries": [
+    {
+      "deliveryId": "dlv_01JAV0Y8DDDDDDDDDDDDDDDDDD",
+      "eventId": "evt_01JAV0Y8CCCCCCCCCCCCCCCCCC",
+      "eventType": "payment.succeeded",
+      "order": 1,
+      "scheduledAt": "2026-11-09T00:00:05.300Z",
+      "duplicate": false
+    },
+    {
+      "deliveryId": "dlv_01JAV0Y8EEEEEEEEEEEEEEEEEE",
+      "eventId": "evt_01JAV0Y8CCCCCCCCCCCCCCCCCC",
+      "eventType": "payment.succeeded",
+      "order": 2,
+      "scheduledAt": "2026-11-09T00:00:05.900Z",
+      "duplicate": true
+    }
+  ]
+}

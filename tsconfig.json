@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@baturpay/core": ["packages/core/src/index.ts"],
+      "@baturpay/simulator": ["packages/simulator/src/index.ts"],
+      "@baturpay/webhook": ["packages/webhook/src/index.ts"],
+      "@baturpay/contracts": ["packages/contracts/src/index.ts"],
+      "@baturpay/config": ["packages/config/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "apps/api/src/**/*.ts",
+    "apps/api/test/**/*.ts",
+    "apps/cli/src/**/*.ts",
+    "apps/mcp/src/**/*.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["node_modules", "**/dist", "apps/web"]
+}

@@ -1,27 +1,97 @@
 # BaturPay
 
-**Infrastruktur pembayaran yang dibangun dengan pengalaman developer sebagai produk inti.**
+**Payment developer workbench** — sandbox deterministik, webhook lab, dan alat integrasi yang siap dipakai manusia maupun coding agent.
 
-BaturPay dimulai sebagai payment developer platform berbasis sandbox: API, simulator transaksi, webhook lab, rekonsiliasi deterministik, serta alur kerja coding-agent yang membantu pengembang mengintegrasikan dan menguji pembayaran dengan aman. BaturPay bukan PJP dan tidak memproses dana riil pada tahap ini.
+BaturPay bukan PJP dan tidak memindahkan uang. Build ini menyediakan infrastruktur kelas produksi untuk **membangun, menguji, dan memverifikasi** integrasi pembayaran. Seluruh transaksi bersifat simulasi; operasi uang riil diblokir oleh *live gate* yang gagal-tertutup.
 
-## Prinsip
+## Kenapa
 
-- Sandbox-first; mode produksi tidak tersedia pada MVP.
-- Source of truth transaksi ditentukan server/provider, bukan redirect browser atau klaim agent.
-- Integrasi provider melalui adapter teruji dan kontrak terdokumentasi.
-- Agen AI mengusulkan/menghasilkan perubahan, tetapi seluruh tindakan berdampak wajib melalui policy dan persetujuan manusia.
-- OpenCode, Hermes, dan toolchain agent lain diperlakukan sebagai klien/adaptor opsional; tidak ada ketergantungan pada satu vendor/model.
-- Jangan pernah masukkan credential, data kartu, atau data pribadi nyata ke prompt/log.
+Integrasi pembayaran sulit bukan karena membuat satu request, tetapi karena kegagalan: webhook duplikat/terlambat, urutan event salah, timeout ambigu, dan rekonsiliasi yang tidak cocok. BaturPay menyediakan lingkungan failure-first yang dapat diputar ulang, sehingga integrasi dan handler Anda diuji terhadap hal-hal yang benar-benar merusak produksi.
 
-## Rencana dokumen
+## Fitur
 
-- [Strategi & visi](docs/strategy/vision.md)
-- [Riset developer platform dan coding agents](docs/research/developer-platform-and-agents.md)
+- **Sandbox deterministik** — skenario dengan seed tetap, hasil dapat direproduksi persis.
+- **Webhook lab** — HMAC + timestamp, dedup, retry backoff, DLQ, replay manual, anti-SSRF.
+- **Kebenaran domain** — uang integer minor, state machine, idempotensi keras, pembayaran ≠ settlement.
+- **Kontrak terkunci** — OpenAPI + skema Zod + fixture yang divalidasi test.
+- **Siap agent** — CLI + server MCP stdio (sandbox/read-only, tanpa akses shell).
+- **Siap produksi** — Postgres/atau memori, migrasi, Docker + Nginx, CI lengkap, audit trail.
+- **Live gate** — operasi uang riil hanya bisa aktif dengan mode + flag + atestasi kepatuhan.
+
+## Mulai cepat (tanpa database)
+
+```bash
+npm install
+BATURPAY_MODE=sandbox DATABASE_URL=memory:// npm run start:api   # http://localhost:4000
+
+# di terminal lain
+curl -s -X POST localhost:4000/v1/workspaces -H 'content-type: application/json' -d '{"name":"Demo"}'
+export BATURPAY_API_KEY=sk_sandbox_...
+npm run cli -- scenarios
+npm run cli -- invoice:create --external-id INV-1 --amount 50000
+```
+
+## Mulai cepat (stack penuh)
+
+```bash
+cp .env.example .env
+npm run docker:up            # Postgres + API + Web + Nginx (:8080)
+# atau
+docker compose -f infra/docker/docker-compose.yml up -d postgres
+export DATABASE_URL=postgres://baturpay:baturpay@localhost:5432/baturpay
+npm run db:migrate && npm run db:seed && npm run start:api
+```
+
+## Struktur repositori
+
+```text
+apps/
+  api/         Fastify API + worker webhook (rute -> service -> store)
+  web/         Dashboard Next.js (kontrol sandbox)
+  cli/         CLI operator
+  mcp/         Server MCP stdio untuk coding agent
+packages/
+  core/        Domain: money, state machine, idempotency, live gate
+  simulator/   Engine skenario deterministik
+  webhook/     Tanda tangan, SSRF guard, retry, dedup
+  contracts/   Skema Zod + OpenAPI + fixture
+  config/      Validasi environment + perakitan live gate
+infra/
+  docker/      Compose + Dockerfile
+  nginx/       Konfigurasi reverse proxy
+docs/
+  strategy/ product/ technical/ security/ operations/ research/
+```
+
+## Perintah
+
+| Perintah | Fungsi |
+|---|---|
+| `npm run typecheck` | Typecheck seluruh workspace |
+| `npm test` | Unit + integrasi (hermetis, tanpa jaringan) |
+| `npm run dev:api` | API dalam mode watch |
+| `npm run cli -- <cmd>` | CLI operator |
+| `npm run mcp` | Server MCP stdio |
+| `npm run db:migrate` | Terapkan migrasi SQL |
+| `npm run db:seed` | Buat workspace + key demo |
+| `npm run docker:up` | Jalankan stack penuh |
+
+## Dokumentasi
+
+- [Visi & tesis produk](docs/strategy/vision.md)
 - [PRD sandbox MVP](docs/product/prd-sandbox-mvp.md)
-- [Arsitektur teknis](docs/technical/architecture.md)
-- [Backlog awal](docs/product/backlog.md)
-- [Batasan regulasi dan keselamatan](docs/security/safety-and-compliance.md)
+- [Arsitektur](docs/technical/architecture.md)
+- [Referensi API](docs/technical/api.md)
+- [Integrasi coding agent](docs/technical/agent-integration.md)
+- [Kesiapan produksi & batas](docs/technical/production-readiness.md)
+- [Model keamanan](docs/security/security-model.md)
+- [Runbook operasional](docs/operations/runbook.md)
+- [Batasan regulasi & keselamatan](docs/security/safety-and-compliance.md)
+- [Riset developer platform & agents](docs/research/developer-platform-and-agents.md)
+- [ADR 0001](docs/technical/adr/0001-stack-and-boundaries.md)
 
-## Status
+## Batas & kepatuhan
 
-Perencanaan dan sandbox. Belum untuk transaksi uang sungguhan, onboarding merchant komersial, settlement, atau klaim status Merchant Aggregator. Klasifikasi dan kewajiban hukum harus ditinjau penasihat kompeten serta mitra berizin sebelum ada aktivitas produksi.
+Build ini tidak melakukan acquiring, tidak menahan/memindahkan dana, tidak menerbitkan QRIS yang dapat dibayar, dan tidak menyimpan saldo. Aktivasi aktivitas uang riil memerlukan mitra PJP berizin, perizinan/persetujuan yang relevan, kontrak, dan review hukum. Lihat `docs/technical/production-readiness.md` dan `docs/security/safety-and-compliance.md`.
+
+Lisensi: MIT.

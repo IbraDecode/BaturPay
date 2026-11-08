@@ -1,0 +1,13 @@
+{
+  "id": "inv_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+  "workspaceId": "ws_01JAV0Y8Y8Y8Y8Y8Y8Y8Y8Y8Y",
+  "externalId": "INV-2026-0001",
+  "amountMinor": 50000,
+  "currency": "IDR",
+  "status": "PENDING",
+  "environment": "sandbox",
+  "description": "Sandbox test invoice",
+  "scenario": "duplicate_webhook",
+  "createdAt": "2026-11-09T00:00:00.000Z",
+  "updatedAt": "2026-11-09T00:00:01.000Z"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@baturpay/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "baturpay-mcp": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@baturpay/contracts": "*",
+    "@baturpay/core": "*"
+  }
+}
